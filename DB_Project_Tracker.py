@@ -15,6 +15,7 @@ class DatabaseManager:
 
 #Initialise database 
     def init_database(self):
+        created_at = datetime.now(ZoneInfo("Asia/Kuala_Lumpur")).isoformat()
         with sqlite3.connect(self.db_name) as conn:
             cursor = conn.cursor()
             
@@ -49,7 +50,7 @@ class DatabaseManager:
                     f_nprofit FLOAT,
                     f_margin FLOAT,
                     f_remarks TEXT,
-                    created_at TEXT
+                    created_at
                 )           
             ''')
             conn.commit()
@@ -69,8 +70,8 @@ class DatabaseManager:
                 p_e_date, job_id, job_ol_id, job_ra_id,s_id, ta_id, pf_link, 
                 p_status, b_unit, b_country, b_name, b_name_id,market, ir, loi, 
                 f_deliverables, f_currency, f_revenue, f_cost,f_nprofit, f_margin, 
-                f_remarks
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                f_remarks, created_at
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """
         values = (
             project_data.get("p_name"),
@@ -100,10 +101,10 @@ class DatabaseManager:
             project_data.get("f_cost"),
             project_data.get("f_nprofit"),
             project_data.get("f_margin"),
-            project_data.get("f_remarks")
+            project_data.get("f_remarks"),
+            project_data.get("created_at")
         )
 
-        created_at = datetime.now(ZoneInfo("Asia/Kuala_Lumpur"))
 
         try:
             with sqlite3.connect(self.db_name) as conn:

@@ -367,7 +367,7 @@ def show_dashboard():
             st.subheader("Projects by Margin Band")
             margin_band_counts = {}
             for project in projects:
-                margin_band = project.get("margin_band", "Unknown")
+                margin_band = project.get("margin_band") or project.get("f_margin_band", "Unknown")
                 margin_band_counts[margin_band] = margin_band_counts.get(margin_band, 0) + 1
             st.bar_chart(margin_band_counts)
         with col6:
@@ -379,9 +379,18 @@ def show_dashboard():
             st.bar_chart(p_manager_counts)
         
         st.markdown("### Recent Projects")
-        recent_projects = sorted(projects, key=lambda x: x.get("created_at", ""), reverse=True)[:10]
+        recent_projects = sorted(
+            projects, 
+            key=lambda x: x.get("created_at") or "", 
+            reverse=True
+        )
+
         for project in recent_projects:
-            st.markdown(f"**{project.get('p_name', 'Unnamed Project')}** - Status: {project.get('p_status', 'Unknown')}, Segment: {project.get('p_segment', 'Unknown')}, Type: {project.get('p_type', 'Unknown')}")
+            st.markdown(f"**{project.get('p_name', 'Unnamed Project')}**, "
+                        f"sid: {project.get('s_id', 'Unknown')},"
+                        f"Status: {project.get('p_status', 'Unknown')}, "
+                        f"Segment: {project.get('p_segment', 'Unknown')}, "
+                        f"Type: {project.get('p_type', 'Unknown')}")
 
     else:
         st.error("Failed to load projects for dashboard.")
@@ -546,7 +555,8 @@ def create_project_ui():
             "f_cost": float(f_cost) if f_cost else 0,
             "f_nprofit": float(f_nprofit) if f_nprofit else 0,
             "f_margin": margin_map.get(margin_band, 0),
-            "f_remarks": f_remarks
+            "margin_band": margin_band,
+            "f_remarks": f_remarks,
         }   
 
         response, success = create_project_api(new_project)
@@ -570,7 +580,7 @@ def search_projects():
         response_data, success = get_all_projects()
         if success:
             projects = response_data["projects"]
-            display_search_results(projects)
+            display_search_results(response_data)
         else:
             st.error("Failed to retrieve projects. Please try again later.")
     
@@ -755,11 +765,26 @@ def display_search_results(response_data):
     st.markdown(f"### Search Results ({len(projects)} projects found)")
 
     for project in projects:
-        st.markdown(
-            f"**{project.get('p_name', 'Unnamed Project')}** - \n"
-            f"Status: {project.get('p_status', 'Unknown')}, \n"
-            f"Segment: {project.get('p_segment', 'Unknown')}, \n"
-            f"Type: {project.get('p_type', 'Unknown')}"
+        created_at = project.get("created_at")
+        if created_at:
+            try:
+                dt =datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                created_at = dt.strftime("%d-%m-%Y, %I:%M:%p")
+            except Exception:
+                created_at = created_at
+
+        st.markdown(f"""
+            **{project.get('p_name', 'Unnamed Project')}**
+            - SID: {project.get('s_id', 'Unknown')}
+            - Status: {project.get('p_status', 'Unknown')}
+            - Segment: {project.get('p_segment', 'Unknown')}
+            - Type: {project.get('p_type', 'Unknown')}
+            - Manager: {project.get('p_manager', 'Unknown')}
+            - Start Date: {project.get('p_s_date', 'Unknown')}
+            - End Date: {project.get('p_e_date', 'Unknown')}
+            - Created At: {created_at or 'Unknown'}
+            ---
+        """
         )
     else:
         st.info("No projects found matching the search criteria.")

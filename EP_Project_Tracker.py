@@ -128,7 +128,15 @@ class ProjectResponse(BaseModel):
     f_nprofit: Optional[float]
     f_margin: Optional[float]
     f_remarks: Optional[str]
-    created_at: date
+    created_at: Optional[datetime] = None
+
+def parse_datetime(value):
+    if value:
+        try:
+            return datetime.fromisoformat(value)
+        except:
+            return None
+    return None
 
 class ProjectListResponse(BaseModel):
     message: str
@@ -145,7 +153,7 @@ def project_field(project):
         job_ol_id=project[10], job_ra_id=project[11], s_id=project[12], ta_id=project[13], pf_link=project[14],
         b_unit=project[15], b_country=project[16], b_name=project[17], b_name_id=project[18], market=project[19],
         ir=project[20], loi=project[21], f_deliverables=project[22], f_currency=project[23], f_revenue=project[24], 
-        f_cost=project[25],f_nprofit=project[26], f_margin=project[27], f_remarks=project[28], created_at=project[29]
+        f_cost=project[25],f_nprofit=project[26], f_margin=project[27], f_remarks=project[28], created_at=parse_datetime(project[29])
     )
 
 # --- API Endpoints ---
@@ -162,10 +170,12 @@ async def read_root():
 async def create_project(project: ProjectCreate):
     try:
         project_data = project.model_dump()
+        created_at = datetime.now().isoformat()
+        project_data["created_at"] = created_at
         db_id = db.create_project(project_data)
 
         if db_id:
-            return ProjectResponse(db_id=db_id, created_at=project_data.get("p_s_date"), **project_data)
+            return ProjectResponse(db_id=db_id, created_at=created_at, **project_data)
         
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, 
@@ -254,7 +264,7 @@ async def get_project_by_db_id(db_id: int):
 @app.get("/projects/search/{keyword}", response_model=ProjectListResponse)
 async def get_projects_by_name_keyword(keyword: str):
     try:
-        projects = db.get_projects_by_name(keyword)
+        projects = db.get_projects_by_name_keyword(keyword)
         formatted_projects = [project_field(project) for project in projects]
 
         return {
@@ -269,7 +279,7 @@ async def get_projects_by_name_keyword(keyword: str):
 
 #Retrieve Projects by Project SID
 @app.get("/projects/sid/{sid}", response_model=ProjectListResponse)
-async def get_projects_by_s_id(sid: int):
+async def get_projects_by_s_id(sid: str):
     try:
         projects = db.get_projects_by_s_id(sid)
         formatted_projects = [project_field(project) for project in projects]
@@ -337,7 +347,7 @@ async def get_projects_by_ta_id(ta_id: int):
 
 #Retrieve Projects by Project Job ID
 @app.get("/projects/job_id/{job_id}", response_model=ProjectListResponse)
-async def get_projects_by_job_id(job_id: int):
+async def get_projects_by_job_id(job_id: str):
     try:
         projects = db.get_projects_by_job_id(job_id)
         formatted_projects = [project_field(project) for project in projects]
@@ -354,7 +364,7 @@ async def get_projects_by_job_id(job_id: int):
 
 #Retrieve Projects by Project Job OL ID
 @app.get("/projects/job_ol_id/{job_ol_id}", response_model=ProjectListResponse)
-async def get_projects_by_job_ol_id(job_ol_id: int):
+async def get_projects_by_job_ol_id(job_ol_id: str):
     try:
         projects = db.get_projects_by_job_ol_id(job_ol_id)
         formatted_projects = [project_field(project) for project in projects]
@@ -371,7 +381,7 @@ async def get_projects_by_job_ol_id(job_ol_id: int):
 
 #Retrieve Projects by Project Job RA ID
 @app.get("/projects/job_ra_id/{job_ra_id}", response_model=ProjectListResponse)
-async def get_projects_by_job_ra_id(job_ra_id: int):   
+async def get_projects_by_job_ra_id(job_ra_id: str):   
     try:
         projects = db.get_projects_by_job_ra_id(job_ra_id)
         formatted_projects = [project_field(project) for project in projects]
@@ -388,7 +398,7 @@ async def get_projects_by_job_ra_id(job_ra_id: int):
 
 #Retrieve Projects by Project Status
 @app.get("/projects/status/{p_status}", response_model=ProjectListResponse)
-async def get_projects_by_status(p_status: str):
+async def get_projects_by_p_status(p_status: str):
     try:
         projects = db.get_projects_by_p_status(p_status)
         formatted_projects = [project_field(project) for project in projects]
@@ -405,9 +415,9 @@ async def get_projects_by_status(p_status: str):
     
 #Retrieve Projects by Project Manager
 @app.get("/projects/manager/{manager}", response_model=ProjectListResponse)
-async def get_projects_by_manager(p_manager: str):
+async def get_projects_by_p_manager(p_manager: str):
     try:
-        projects = db.get_projects_by_manager(p_manager)
+        projects = db.get_projects_by_p_manager(p_manager)
         formatted_projects = [project_field(project) for project in projects]
 
         return {
@@ -422,7 +432,7 @@ async def get_projects_by_manager(p_manager: str):
 
 #Retrieve Projects by Project Business Unit
 @app.get("/projects/business_unit/{b_unit}", response_model=ProjectListResponse)
-async def get_projects_by_business_unit(b_unit: str):
+async def get_projects_by_b_unit(b_unit: str):
     try:
         projects = db.get_projects_by_b_unit(b_unit)
         formatted_projects = [project_field(project) for project in projects]
@@ -439,7 +449,7 @@ async def get_projects_by_business_unit(b_unit: str):
 
 #Retrieve Projects by Project Business Country   
 @app.get("/projects/business_country/{b_country}", response_model=ProjectListResponse)
-async def get_projects_by_business_country(b_country: str):
+async def get_projects_by_b_country(b_country: str):
     try:
         projects = db.get_projects_by_b_country(b_country)
         formatted_projects = [project_field(project) for project in projects]
@@ -456,7 +466,7 @@ async def get_projects_by_business_country(b_country: str):
     
 #Retrieve Projects by Project Business Name
 @app.get("/projects/business_name/{b_name}", response_model=ProjectListResponse)
-async def get_projects_by_business_name(b_name: str):
+async def get_projects_by_b_name(b_name: str):
     try:
         projects = db.get_projects_by_b_name(b_name)
         formatted_projects = [project_field(project) for project in projects]
@@ -473,7 +483,7 @@ async def get_projects_by_business_name(b_name: str):
     
 #Retrieve Projects by Project Business Status
 @app.get("/projects/business_status/{b_status}", response_model=ProjectListResponse)
-async def get_projects_by_business_status(b_status: str):
+async def get_projects_by_b_status(b_status: str):
     try:
         projects = db.get_projects_by_b_status(b_status)
         formatted_projects = [project_field(project) for project in projects]
@@ -490,7 +500,7 @@ async def get_projects_by_business_status(b_status: str):
     
 #Retrieve Projects by Project Margin Band
 @app.get("/projects/margin_band/{f_margin_band}", response_model=ProjectListResponse)
-async def get_projects_by_margin_band(f_margin_band: str):
+async def get_projects_by_f_margin_band(f_margin_band: str):
     try:
         projects = db.get_projects_by_f_margin_band(f_margin_band)
         formatted_projects = [project_field(project) for project in projects]
