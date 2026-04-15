@@ -2,9 +2,9 @@
 
 import sqlite3
 from fastapi import FastAPI, HTTPException, status
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator, validator
 from typing import List, Optional
-from datetime import date, datetime, timezone, timedelta
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 from DB_Project_Tracker import DatabaseManager
 
@@ -31,8 +31,8 @@ class ProjectBase(BaseModel):
     b_name: str
     b_name_id: int
     market: str
-    ir: float = Field(..., max_length=2)
-    loi: float = Field(..., max_length=2)
+    ir: float = Field(None, ge=0)
+    loi: float = Field(None, ge=0)
     f_deliverables: Optional[int] = Field(None, ge=0)
     f_currency: Optional[str] = Field(None, max_length=3)
     f_revenue: Optional[float] = Field(None, ge=0)
@@ -53,13 +53,20 @@ class ProjectBase(BaseModel):
         except ValueError:
             raise ValueError("Date must be in DD-MM-YYYY format")
         
-    @model_validator(mode="after")
-    def check_dates(self):
-        if self.p_e_date and self.p_s_date and self.p_e_date < self.p_s_date:
-            raise ValueError("End date cannot be before start date")
-        return self
+    @validator("p_s_date", "p_e_date")
+    def parse_dates(cls, v):
+        if isinstance(v, str):
+            try:
+                return datetime.strptime(v, "%d-%m-%Y").date()
+            except ValueError:
+                raise ValueError("Date must be in DD-MM-YYYY format")
 
-class ProjectCreate(BaseModel):
+        if isinstance(v, date):
+            return v
+
+        raise ValueError("Invalid date format")
+
+class ProjectCreate(ProjectBase):
     pass
 
 class ProjectUpdate(BaseModel):
@@ -92,12 +99,19 @@ class ProjectUpdate(BaseModel):
     f_margin: Optional[float] = Field(None, ge=0)
     f_remarks: Optional[str] = None
 
-    @model_validator(mode="after")
-    def check_dates(self):
-        if self.p_e_date and self.p_s_date and self.p_e_date < self.p_s_date:
-            raise ValueError("End date cannot be before start date")
-        return self
+    @validator("p_s_date", "p_e_date")
+    def parse_dates(cls, v):
+        if isinstance(v, str):
+            try:
+                return datetime.strptime(v, "%d-%m-%Y").date()
+            except ValueError:
+                raise ValueError("Date must be in DD-MM-YYYY format")
 
+        if isinstance(v, date):
+            return v
+
+        raise ValueError("Invalid date format")
+        
 class ProjectResponse(BaseModel):
     db_id: int
     p_name: str
@@ -170,12 +184,18 @@ async def read_root():
 async def create_project(project: ProjectCreate):
     try:
         project_data = project.model_dump()
+
+        project_data["p_s_date"] = project_data["p_s_date"].isoformat()
+        if project_data.get("p_e_date"):
+            project_data["p_e_date"] = project_data["p_e_date"].isoformat()
+
         created_at = datetime.now().isoformat()
         project_data["created_at"] = created_at
+
         db_id = db.create_project(project_data)
 
         if db_id:
-            return ProjectResponse(db_id=db_id, created_at=created_at, **project_data)
+            return ProjectResponse(db_id=db_id, **project_data)
         
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, 

@@ -50,7 +50,7 @@ class DatabaseManager:
                     f_nprofit FLOAT,
                     f_margin FLOAT,
                     f_remarks TEXT,
-                    created_at
+                    created_at TEXT
                 )           
             ''')
             conn.commit()
@@ -58,7 +58,7 @@ class DatabaseManager:
     def to_sql_date(self, date_str):
         """Convert date from DD-MM-YYYY to YYYY-MM-DD format."""
         try:
-            return datetime.strptime(date_str, "%d-%m-%Y")
+            return datetime.strptime(date_str, "%d-%m-%Y").strftime("%Y-%m-%d")
         except ValueError:
             raise ValueError("Invalid date format. Please use DD-MM-YYYY.")
 

@@ -2,9 +2,11 @@
 
 from re import search
 from unittest import result
+from pandas import col
 import requests
 import streamlit as st
 from datetime import datetime
+import pandas as pd
 
 #Configuration of page
 st.set_page_config(
@@ -315,7 +317,7 @@ def main():
 
     #Sidebar navigation
     st.sidebar.title("Navigation")
-    page = st.sidebar.selectbox("Go to", ["Dashboard", "Create Project", "Search Projects"])
+    page = st.sidebar.selectbox("Go to", ["Dashboard", "Create Project", "Search Projects", "Update Project"])
     
     if page == "Dashboard":
         show_dashboard()
@@ -323,6 +325,8 @@ def main():
         create_project_ui()
     elif page == "Search Projects":
         search_projects()
+    elif page == "Update Project":
+        update_project()
 
 #Dashboard
 def show_dashboard():
@@ -401,32 +405,32 @@ def create_project_ui():
     st.markdown("Fill out the form below to create a new project.")
 
     with st.form("create_project_form"):
-        p_name = st.text_input("Project Name", max_chars=100)
-        p_manager = st.text_input("Project Manager", max_chars=100)
-        p_team = st.text_input("Project Team", max_chars=100)
+        p_name = st.text_input("Project Name", max_chars=100, placeholder="Enter Project Name")
+        p_manager = st.text_input("Project Manager", max_chars=100, placeholder="Enter Project Manager")
+        p_team = st.text_input("Project Team", max_chars=100, placeholder="Enter Project Team")
         p_segment = st.selectbox("Project Segment", ["Sample Only (External)", "Sample Only", "Full Service", "Coverage", "Other"])
         p_type = st.selectbox("Project Type", ["Ad Hoc", "Tracker", "Other"])
         p_status = st.selectbox("Project Status", ["Field", "Completed", "Other"])
         p_s_date = st.date_input("Project Start Date")
         p_e_date = st.date_input("Project End Date")
-        job_id = st.text_input("Job ID", max_chars=20)
-        job_ol_id = st.text_input("Job OL ID", max_chars=20)
-        job_ra_id = st.text_input("Job RA ID", max_chars=20)
-        s_id = st.text_input("SID", max_chars=20)
-        ta_id = st.text_input("TA ID", max_chars=10)
-        pf_link = st.text_input("Path Folder Link", max_chars=200)
-        b_unit = st.text_input("Business Unit", max_chars=100)
-        b_country = st.text_input("Business Country", max_chars=100)
-        b_name = st.text_input("Business Name", max_chars=100)
-        b_name_id = st.text_input("Business Name ID", max_chars=100) 
-        market = st.text_input("Market", max_chars=100)
-        ir = st.text_input("IR (%)", max_chars=2)
-        loi = st.text_input("LOI (Minutes)", max_chars=2)
-        f_deliverables = st.number_input("Final Deliverables", min_value=0, step=1, max_value=99999)
-        f_currency = st.text_input("Final Currency (e.g. AUD / USD)", max_chars=3)
-        f_revenue = st.text_input("Fieldwork Revenue", max_chars=20)
-        f_cost = st.text_input("Fieldwork Cost", max_chars=20)
-        f_nprofit = st.text_input("Fieldwork Net Profit", max_chars=20)
+        job_id = st.text_input("Job ID", max_chars=12, placeholder="Enter 10 Digit Job ID")
+        job_ol_id = st.text_input("Job OL ID", max_chars=15, placeholder="Enter 12 Digit Job OL ID")
+        job_ra_id = st.text_input("Job RA ID", max_chars=15, placeholder="Enter 12 Digit Job RA ID")
+        s_id = st.text_input("SID", value="S", max_chars=9, placeholder="Enter SID")
+        ta_id = st.number_input("TA ID", min_value=0, max_value=999999, value=None, placeholder="Enter TA ID")
+        pf_link = st.text_input("Path Folder Link", max_chars=200, placeholder="Enter Path Folder Link")
+        b_unit = st.text_input("Business Unit", max_chars=100, placeholder="Enter Client Company")
+        b_country = st.text_input("Business Country", max_chars=100, placeholder="Enter Client Country")
+        b_name = st.text_input("Business Name", max_chars=100, placeholder="Enter Client Name")
+        b_name_id = st.number_input("Business Name ID", min_value=0, max_value=99, value=None, placeholder="Enter Client ID (Symphony)") 
+        market = st.text_input("Market", max_chars=100, placeholder="Enter Fieldwork Market")
+        ir = st.number_input("IR (%)", min_value=0.0, max_value=100.0, value=None, placeholder="Enter IR (%)")
+        loi = st.number_input("LOI (Minutes)", min_value=0, max_value=999, value=None, placeholder="Enter LOI (Minutes)")
+        f_deliverables = st.number_input("Final Deliverables", min_value=0, max_value=99999, value=None, placeholder="Enter Final Deliverables")
+        f_currency = st.text_input("Final Currency (e.g. AUD / USD)", max_chars=3, placeholder="Enter Final Currency").strip().upper()
+        f_revenue = st.number_input("Fieldwork Revenue", min_value=0.0, max_value=9999999.0, value=None, placeholder="Enter Fieldwork Revenue")
+        f_cost = st.number_input("Fieldwork Cost", min_value=0.0, max_value=9999999.0, value=None, placeholder="Enter Fieldwork Cost/Incentive")
+        f_nprofit = st.number_input("Fieldwork Net Profit", min_value=0.0, max_value=9999999.0, value=None, placeholder="Enter Fieldwork Net Profit")
         margin_band = st.selectbox("Margin Band", ["0%", "1-19%", "20-49%", "50-79%", "80-100%"])
         f_remarks = st.text_area("Fieldwork Remarks", max_chars=500)
 
@@ -470,7 +474,7 @@ def create_project_ui():
         if not s_id or not s_id.strip():
             st.error("Project SID is required.")
             return
-        if not ta_id or not ta_id.strip():
+        if ta_id is None:
             st.error("Project TA ID is required.")
             return
         if not pf_link or not pf_link.strip():
@@ -485,36 +489,36 @@ def create_project_ui():
         if not b_name or not b_name.strip():
             st.error("Business Name is required.")
             return  
-        if not b_name_id or not b_name_id.strip():
+        if b_name_id is None:
             st.error("Business Name ID is required.")
             return
         if not market or not market.strip():
             st.error("Market is required.")
             return
-        if not ir or not ir.strip():
+        if ir is None:
             st.error("IR is required.")
             return
-        if not loi or not loi.strip():
+        if loi is None:
             st.error("LOI is required.")
             return
 
         try:
-            ta_id_val = int(ta_id) if ta_id.strip() else None
+            ta_id_val = int(ta_id) if str(ta_id).strip() else None
         except ValueError:
             st.error("TA ID must be a number.")
             return
         try:
-            b_name_id_val = int(b_name_id) if b_name_id.strip() else None
+            b_name_id_val = int(b_name_id) if str(b_name_id).strip() else None
         except ValueError:
             st.error("Business Name ID must be a number.")
             return
         try:
-            ir_val = float(ir) if ir.strip() else None 
+            ir_val = int(ir) if str(ir).strip() else None 
         except ValueError:
             st.error("IR must be a number.")
             return
         try:
-            loi_val = float(loi) if loi.strip() else None
+            loi_val = int(loi) if str(loi).strip() else None
         except ValueError:
             st.error("LOI must be a number.")
             return
@@ -534,40 +538,43 @@ def create_project_ui():
             "p_segment": p_segment,
             "p_type": p_type,
             "p_status": p_status,       
-            "p_s_date": p_s_date.strftime("%d-%m-%Y"),
-            "p_e_date": p_e_date.strftime("%d-%m-%Y"),
+            "p_s_date": p_s_date.strftime("%d-%m-%Y") if p_s_date else None,
+            "p_e_date": p_e_date.strftime("%d-%m-%Y") if p_e_date else None,
             "job_id": job_id,
             "job_ol_id": job_ol_id,
             "job_ra_id": job_ra_id,
             "s_id": s_id,
-            "ta_id": ta_id_val,
+            "ta_id": int(ta_id_val),
             "pf_link": pf_link,
             "b_unit": b_unit,
             "b_country": b_country,
-            "b_name": b_name,
-            "b_name_id": b_name_id_val,
+            "b_name": (b_name),
+            "b_name_id": int(b_name_id_val),
             "market": market,
-            "ir": ir_val,
-            "loi": loi_val,
-            "f_deliverables": int(f_deliverables) if f_deliverables else 0,
+            "ir": int(ir_val),
+            "loi": int(loi_val),
+            "f_deliverables": f_deliverables,
             "f_currency": f_currency,
-            "f_revenue": float(f_revenue) if f_revenue else 0,
-            "f_cost": float(f_cost) if f_cost else 0,
-            "f_nprofit": float(f_nprofit) if f_nprofit else 0,
-            "f_margin": margin_map.get(margin_band, 0),
-            "margin_band": margin_band,
+            "f_revenue": f_revenue,
+            "f_cost": f_cost,
+            "f_nprofit": f_nprofit,
+            "f_margin": margin_map.get(margin_band, 0.0),
             "f_remarks": f_remarks,
         }   
 
         response, success = create_project_api(new_project)
 
         if success:
-            st.success(f"Project'{p_name} created successfully! DB ID: {response['db_id']}")
+            st.session_state["success_msg"] = (f"Project: {p_name} created successfully! DB ID: {response['db_id']}")
             st.rerun()
         else:
             st.error("Failed to create project. Please try again.")
-    else:
-        st.info("Fill out the form and click 'Create Project' to add a new project to the tracker.")
+    
+    if "success_msg" in st.session_state:
+        st.success(st.session_state["success_msg"])
+        del st.session_state["success_msg"]
+    
+    st.info("Fill out the form and click 'Create Project' to add a new project to the tracker.")
 
 #Search Projects
 def search_projects():
@@ -749,6 +756,165 @@ def search_projects():
                     display_search_results(response_data)
                 else:
                     st.error("No projects found matching the search criteria. Please try different date filters.")
+
+#Update Project
+def update_project():
+    st.header("Update Project")
+    st.markdown("To update a project, please enter the Database ID of the project and the fields you want to update.")
+
+    def safe_int(x):
+        try:
+            return int(x)
+        except:
+            return 0
+        
+    def safe_str(x):
+        if x is None:
+            return ""
+        return str(x)
+
+    def safe_float(x):
+        try:
+            return float(x)
+        except:
+           return 0.0
+
+    db_id = st.text_input("Enter Database ID of the project to update", max_chars=10)
+    
+    if db_id:
+        if not db_id.isdigit():
+            st.error("Database ID must be a number.")
+            return
+        
+        db_id = int(db_id)
+        
+        response_data, success = get_project_by_db_id(db_id)
+
+        project = None
+        if isinstance(response_data, dict):
+            if "project" in response_data:
+                project = response_data["project"]
+            elif "projects" in response_data and response_data["projects"]:
+                project = response_data["projects"][0]
+            elif "data" in response_data:
+                project = response_data["data"]
+
+        if success and project:
+            st.markdown(f"### Current Details for Project: {project.get('p_name')}")
+            st.markdown("### Project Details loaded. Select the field you want to update and enter the new value below.")
+            col1, col2, col3= st.columns(3)
+            with col1:
+                st.markdown("### 📋 Project Information")
+                st.markdown(f"**DB ID:** {project.get('db_id')}")
+                st.markdown(f"**Project Name:** {project.get('p_name')}")
+                st.markdown(f"**Project Manager:** {project.get('p_manager')}")
+                st.markdown(f"**Project Team:** {project.get('p_team')}")
+                st.markdown(f"**Project Segment:** {project.get('p_segment')}")
+                st.markdown(f"**Project Type:** {project.get('p_type')}")
+                st.markdown(f"**Project Status:** {project.get('p_status')}")
+                st.markdown(f"**Start Date:** {project.get('p_s_date')}")
+                st.markdown(f"**End Date:** {project.get('p_e_date')}")
+                st.markdown(f"**Market:** {project.get('market')}")
+                st.markdown(f"**SID:** {project.get('s_id')}")
+                st.markdown(f"**TA ID:** {project.get('ta_id')}")
+                st.markdown(f"**Business Unit:** {project.get('b_unit')}")
+                st.markdown(f"**Business Country:** {project.get('b_country')}")
+                st.markdown(f"**IR:** {project.get('ir')}")
+                st.markdown(f"**LOI:** {project.get('loi')}")
+
+            with col2:
+                st.markdown("### 💰 Financials")
+                st.markdown(f"**Final Deliverables:** {project.get('f_deliverables')}")
+                st.markdown(f"**Revenue:** {project.get('f_revenue')}")
+                st.markdown(f"**Cost:** {project.get('f_cost')}")
+                st.markdown(f"**Net Profit:** {project.get('f_nprofit')}")
+                st.markdown(f"**Margin:** {project.get('f_margin')}")
+
+            with col3:
+                st.markdown("### 📝 Remarks")
+                st.markdown(f"**Fieldwork Remarks:** {project.get('f_remarks') or 'None'}")
+
+            st.markdown("---")
+            st.markdown("## ✏️ Update Project")  
+
+            with st.form("update_form"):
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    p_name = st.text_input("Project Name", value=project.get("p_name", ""))
+                    p_manager = st.text_input("Project Manager", value=project.get("p_manager", ""))
+                    p_team = st.text_input("Project Team", value=project.get("p_team", ""))
+                    p_segment = st.text_input("Project Segment", value=project.get("p_segment", ""))
+                    p_type = st.text_input("Project Type", value=project.get("p_type", ""))
+                    p_status = st.text_input("Project Status", value=project.get("p_status", ""))
+                    p_s_date = st.text_input("Start Date", value=project.get("p_s_date", ""))
+                    p_e_date = st.text_input("End Date", value=project.get("p_e_date", ""))
+                    job_id = st.text_input("Job ID", value=project.get("job_id", ""))
+                    job_ol_id = st.text_input("Job OL ID", value=project.get("job_ol_id", ""))
+                    job_ra_id = st.text_input("Job RA ID", value=project.get("job_ra_id", ""))
+                    s_id = st.text_input("SID", value=project.get("s_id", ""))
+                    ta_id = st.number_input("TA ID", value=project.get("ta_id") or 0)
+                    pf_link = st.text_input("Path Folder Link", value=project.get("pf_link", ""))
+                    b_unit = st.text_input("Business Unit", value=project.get("b_unit", ""))
+                    b_country = st.text_input("Business Country", value=project.get("b_country", ""))
+                    b_name = st.text_input("Business Name", value=project.get("b_name", ""))
+                    b_name_id = st.number_input("Business Name ID", value=project.get("b_name_id") or 0)
+                    market = st.text_input("Market", value=project.get("market", ""))
+                    ir = st.number_input("IR", value=project.get("ir") or 0)
+                    loi = st.number_input("LOI", value=project.get("loi") or 0)
+                with col2:
+                    f_deliverables = st.number_input("Deliverables", value=project.get("f_deliverables") or 0)
+                    f_currency = st.text_input("Currency", value=project.get("f_currency", ""))
+                    f_revenue = st.number_input("Revenue", value=project.get("f_revenue") or 0)
+                    f_cost = st.number_input("Cost", value=project.get("f_cost") or 0)
+                    f_nprofit = st.number_input("Net Profit", value=project.get("f_nprofit") or 0)
+                    f_margin = st.number_input("Margin", value=project.get("f_margin") or 0)
+                with col3:
+                    f_remarks = st.text_area("Remarks", value=project.get("f_remarks", ""))
+
+                submitted = st.form_submit_button("Update Project")
+
+            if submitted:
+                updates = {
+                    "p_name": safe_str(p_name),
+                    "p_manager": safe_str(p_manager),
+                    "p_team": safe_str(p_team),
+                    "p_segment": safe_str(p_segment),
+                    "p_type": safe_str(p_type),
+                    "p_status": safe_str(p_status),
+                    "p_s_date": safe_str(p_s_date),
+                    "p_e_date": safe_str(p_e_date),
+                    "job_id": safe_str(job_id),
+                    "job_ol_id": safe_str(job_ol_id),
+                    "job_ra_id": safe_str(job_ra_id),
+                    "s_id": safe_str(s_id),
+                    "ta_id": safe_int(ta_id),
+                    "pf_link": safe_str(pf_link),
+                    "b_unit": safe_str(b_unit),
+                    "b_country": safe_str(b_country),
+                    "b_name": safe_str(b_name),
+                    "b_name_id": safe_int(b_name_id),
+                    "market": safe_str(market),
+                    "ir": safe_float(ir),
+                    "loi": safe_float(loi),
+                    "f_deliverables": safe_int(f_deliverables),
+                    "f_currency": safe_str(f_currency),
+                    "f_revenue": safe_float(f_revenue),
+                    "f_cost": safe_float(f_cost),
+                    "f_nprofit": safe_float(f_nprofit),
+                    "f_margin": safe_float(f_margin),
+                    "f_remarks": safe_str(f_remarks),
+                    }
+
+                response, success = update_project_by_db_id(db_id, updates)
+
+                if success:
+                    st.success("Project updated successfully!")
+                    st.rerun()
+                else:
+                    st.error("Project update failed. Please try again.")
+    
+        else:
+            st.info("Please enter a Database ID to load project details for updating.") 
 
 #Display Function
 def display_search_results(response_data):
