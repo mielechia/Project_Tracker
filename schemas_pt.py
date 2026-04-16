@@ -1,13 +1,18 @@
 #Project Tracker API using FastAPI (endpoint implementations)
 
-import sqlite3
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, APIRouter, Query
 from pydantic import BaseModel, Field, field_validator, model_validator, validator
 from typing import List, Optional
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
-from DB_Project_Tracker import DatabaseManager
+from db_pt import DatabaseManager
+from sqlalchemy import Column, Integer, String, Text, DateTime
+from collections import defaultdict
+from google import genai
+import os
 
+ai_router = APIRouter()
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 app = FastAPI(title="Project Tracker API", version="1.0.0")
 
 # --- Pydantic Models for Data Validation ---
@@ -31,8 +36,8 @@ class ProjectBase(BaseModel):
     b_name: str
     b_name_id: int
     market: str
-    ir: float = Field(None, ge=0)
-    loi: float = Field(None, ge=0)
+    ir: float = Field(ge=0, le=100.0)
+    loi: float = Field(ge=0)
     f_deliverables: Optional[int] = Field(None, ge=0)
     f_currency: Optional[str] = Field(None, max_length=3)
     f_revenue: Optional[float] = Field(None, ge=0)
@@ -41,30 +46,31 @@ class ProjectBase(BaseModel):
     f_margin: Optional[float] = Field(None, ge=0)
     f_remarks: Optional[str] = None
 
-    @field_validator("p_s_date", "p_e_date", mode="before")
-    @classmethod
-    def parse_ddmmyyyy(cls, v):
-        if v is None:
-            return v
-        if isinstance(v, date):
-            return v
-        try:
-            return datetime.strptime(v, "%d-%m-%Y").date()
-        except ValueError:
-            raise ValueError("Date must be in DD-MM-YYYY format")
+    #To change date format
+    # @field_validator("p_s_date", "p_e_date", mode="before")
+    # @classmethod
+    # def parse_ddmmyyyy(cls, v):
+    #     if v is None:
+    #         return v
+    #     if isinstance(v, date):
+    #         return v
+    #     try:
+    #         return datetime.strptime(v, "%d-%m-%Y").date()
+    #     except ValueError:
+    #         raise ValueError("Date must be in DD-MM-YYYY format")
         
-    @validator("p_s_date", "p_e_date")
-    def parse_dates(cls, v):
-        if isinstance(v, str):
-            try:
-                return datetime.strptime(v, "%d-%m-%Y").date()
-            except ValueError:
-                raise ValueError("Date must be in DD-MM-YYYY format")
+    # @validator("p_s_date", "p_e_date")
+    # def parse_dates(cls, v):
+    #     if isinstance(v, str):
+    #         try:
+    #             return datetime.strptime(v, "%d-%m-%Y").date()
+    #         except ValueError:
+    #             raise ValueError("Date must be in DD-MM-YYYY format")
 
-        if isinstance(v, date):
-            return v
+    #     if isinstance(v, date):
+    #         return v
 
-        raise ValueError("Invalid date format")
+    #     raise ValueError("Invalid date format")
 
 class ProjectCreate(ProjectBase):
     pass
@@ -89,8 +95,8 @@ class ProjectUpdate(BaseModel):
     b_name: Optional[str] = None
     b_name_id: Optional[int] = None
     market: Optional[str] = None
-    ir: Optional[float] = Field(None, max_length=2)
-    loi: Optional[float] = Field(None, max_length=2)
+    ir: Optional[float] = Field(None, ge=0, le=100)
+    loi: Optional[float] = Field(None, ge=0)
     f_deliverables: Optional[int] = Field(None, ge=0)
     f_currency: Optional[str] = Field(None, max_length=3)
     f_revenue: Optional[float] = Field(None, ge=0)
@@ -156,6 +162,29 @@ class ProjectListResponse(BaseModel):
     message: str
     count: int
     projects: List[ProjectResponse]
+
+class AIInsightSchema(BaseModel):
+    id: int
+    manager: str
+    period: str
+    summary: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+def get_start_date(period: str):
+    now = datetime.now()
+
+    mapping = {
+        "daily": 1,
+        "weekly": 7,
+        "monthly": 30,
+        "yearly": 365
+    }
+
+    days = mapping.get(period, 30)
+    return now - timedelta(days=days)
 
 # --- Database Initialization ---
 db = DatabaseManager()
@@ -561,26 +590,28 @@ async def get_projects_by_date(
         detail=f"An error occurred while retrieving projects by date: {e}") 
 
 #--- Update Project by Database ID ---
-@app.put("/projects/{db_id}")
+@app.put("/projects/{db_id}", response_model=ProjectResponse)
 async def update_project_by_db_id(db_id: int, updates: ProjectUpdate):
     try:
         update_data = updates.model_dump(exclude_unset=True)
+
         if not update_data:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields provided for update")
 
+        if "p_s_date" in update_data and update_data["p_s_date"]:
+            update_data["p_s_date"] = update_data["p_s_date"].isoformat()
+        if "p_e_date" in update_data and update_data["p_e_date"]:
+            update_data["p_e_date"] = update_data["p_e_date"].isoformat()
+
         success = db.update_project(db_id, **update_data)
-        if success:
-            updated_project = db.get_project_by_db_id(db_id)
-            formatted = project_field(updated_project)
-            return {
-                "message": f"Project with ID '{db_id}' updated successfully!",
-                "count": 1,
-                "projects": [formatted]
-            }
-        else:
+        if not success: 
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, 
             detail=f"Project with ID '{db_id}' not found")
-            
+    
+        
+        updated_project = db.get_project_by_db_id(db_id)
+        return project_field(updated_project)
+
     except HTTPException:
         raise
     except Exception as e:
@@ -609,7 +640,108 @@ async def delete_project_by_db_id(db_id: int):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
         detail=f"An error occurred while deleting the project: {e}")
 
+#--- AI Insights ---
+@ai_router.get("/ai/manager-summary/")
+def manager_summary(period: str = "monthly"):
+    projects = db.get_all_projects()
+
+    summary = defaultdict(lambda: {"total": 0, "completed": 0, "active": 0})
+
+    for p in projects:
+        manager = p.p_manager or "Unknown"
+        summary[manager]["total"] += 1
+
+        if p.p_status == "Completed":
+            summary[manager]["completed"] += 1
+        else:
+            summary[manager]["active"] += 1
+
+    return {"period": period,"summary": summary}
+
+@ai_router.get("/ai/llm-summary/")
+def llm_summary():
+    projects = db.get_all_projects()
+
+    project_data = "\n".join(f"- {p.p_name} | {p.p_status} | {p.p_manager}" for p in projects)
+
+    system_prompt = (
+        "You are a senior project analyst. "
+        "Analyze project data and provide insights on:"
+        "1. Overall project performance"
+        "2. Manager productivity"
+        "3. Completion trends"
+        "4. Any risks or bottlenecks"
+        "Be concise and structured."
+    )
+    prompt = f"""{system_prompt} Project Data: {project_data} Provide a structured summary."""
+    response = client.models.generate_content(model="gemini-2.5-flash-lite", contents=prompt)
+    return {"ai_summary": response.text}
+
+@ai_router.get("/report")
+def generate_report(period: str = Query("weekly")):
+    projects = db.get_all_projects()
+    start_date = get_start_date(period)
+
+    filtered = [p for p in projects
+        if p.created_at and p.created_at >= start_date]
+
+    total = len(filtered)
+    completed = sum(1 for p in filtered if (p.p_status or "").lower() == "completed")
+    active = total - completed
+
+    completion_rate = round((completed / total) * 100, 2) if total else 0
+
+    workload = "high" if active > completed else "balanced"
+    performance = "strong" if completion_rate >= 70 else "needs improvement"
+    trend = "positive" if completed >= active else "warning"
+
+    report = f"""📊 {period.upper()} PROJECT REPORT
+
+    📌 Summary:
+    - Total Projects: {total}
+    - Completed: {completed}
+    - Active: {active}
+    - Completion Rate: {completion_rate}%
+
+    📈 Insights:
+    - Workload: {workload}
+    - Performance: {performance}
+    - Trend: {trend}
+    """.strip()
+
+    return {
+        "period": period,
+        "start_date": start_date,
+        "total_projects": total,
+        "completed": completed,
+        "active": active,
+        "completion_rate": completion_rate,
+        "insights": {
+            "workload": "high" if active > completed else "balanced",
+            "performance": "strong" if completion_rate > 70 else "needs improvement",
+            "trend": "positive" if completed >= active else "warning"
+        }}
+
+@ai_router.post("/chat/")
+def ai_chat(question: str, use_projects: bool = False):
+    system_prompt = (
+        "You are a helpful assistant. "
+        "You can answer general questions clearly and concisely. "
+        "If project data is provided, analyse it and give insights."
+        "Please use UK/GB English for all output."
+    )
+
+    context = ""
+
+    if use_projects:
+        projects = db.get_all_projects()
+        project_data = "\n".join(f"- {p.p_name} | {p.p_status} | {p.p_manager}" for p in projects)
+        context = f"\n\nProject Data:\n{project_data}"
+    
+    prompt = f"""{system_prompt} {context} User question:{question}"""
+    response = client.models.generate_content(model="gemini-2.5-flash-lite", contents=prompt)
+    return {"answer": response.text}
+
 if __name__ == "__main__": 
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
-

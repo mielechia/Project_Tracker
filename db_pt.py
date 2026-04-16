@@ -2,8 +2,7 @@
 
 #Crete a database folder
 import sqlite3
-from typing import Optional
-from datetime import date, datetime
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from numpy import rint
@@ -11,6 +10,7 @@ from numpy import rint
 class DatabaseManager:
     def __init__(self, db_name="Project_Tracker.db"):
         self.db_name = db_name
+        self.conn = sqlite3.connect(self.db_name) 
         self.init_database()
 
 #Initialise database 
@@ -380,7 +380,42 @@ class DatabaseManager:
             else:
                 print(f"No project found with db_id {db_id}.")
                 return False
-            
+
+#AI Insights
+    def get_projects_by_date_range(self, start_date, end_date=None):
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+
+            if end_date:
+                cursor.execute("""
+                    SELECT * FROM projects 
+                    WHERE created_at BETWEEN ? AND ?
+                """, (start_date, end_date))
+            else:
+                cursor.execute("""
+                    SELECT * FROM projects 
+                    WHERE created_at >= ?
+                """, (start_date,))
+
+            return cursor.fetchall()
+
+    def get_project_summary(self):
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT 
+                    p_manager,
+                    p_status,
+                    COUNT(*) 
+                FROM projects
+                GROUP BY p_manager, p_status
+            """)
+
+            return cursor.fetchall()
+        
+
+
 #Project display menu
     def display_menu(self):
         print("\n" + "="*30)
@@ -390,13 +425,14 @@ class DatabaseManager:
         print("2. Project Retrieval")
         print("3. Project Update")
         print("4. Project Deletion")
-        print("5. Exit")
+        print("5. AI Insights")
+        print("6. Exit")
         print("="*30)
 
     def main(self):
         while True:
             self.display_menu()
-            choice = input("Enter your choice (1-5): ")
+            choice = input("Enter your choice (1-6): ")
 
             if choice == '1':
                 print("\nProject Creation:")
@@ -817,6 +853,17 @@ class DatabaseManager:
                 print("\nProject Deletion:")
                 try:
                     db_id = int(input("Enter the Database ID of the project to delete: "))
+
+                    cursor = self.conn.cursor()
+                    cursor.execute("SELECT p_name FROM projects WHERE db_id = ?", (db_id,))
+                    result = cursor.fetchone()
+
+                    if not result:
+                        print("Project not found.")
+                        continue
+
+                    p_name = result[0]
+                    
                     confirm = input(f"Please confirm to delete project (yes/no): \n"
                                     f"Database ID: {db_id} \n"
                                     f"Project Name: {p_name} \n")
@@ -829,12 +876,26 @@ class DatabaseManager:
                     print(f"Invalid input: {e}")
 
             elif choice == '5':
+                print("\nAI Insights:")
+                projects = self.get_all_projects()
+
+                total = len(projects)
+                completed = sum(1 for p in projects if p[6] == "Completed")
+                active = total - completed
+
+                print(f"Total Projects: {total}")
+                print(f"Completed: {completed}")
+                print(f"Active: {active}")
+                print(f"Completion Rate: {(completed/total*100) if total else 0:.2f}%")
+                
+            elif choice == '6':
                 print("Exiting Project Tracker. Goodbye!")
                 break
             else:
                 print("Invalid choice. Please enter a number between 1 and 5.")
             
         input("\n Press Enter to continue...")
+
 
 if __name__ == "__main__":
     db = DatabaseManager()

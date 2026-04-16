@@ -35,13 +35,13 @@ def check_api_connection():
 def create_project_api(project):
     try:
         response = requests.post(f"{API_BASE_URL}/projects/", json=project)
-        if response.status_code == 201:
+        if response.status_code == 200:
             return response.json(), True
-        else:
-            st.error(f"Failed to create project: {response.text}")
+        elif response.status_code == 404:
             return None, False
+        else:
+            return None,False
     except requests.exceptions.RequestException as e:
-        st.error(f"Error connecting to API: {e}")
         return None, False
 
 #Retrieve all projects
@@ -50,11 +50,11 @@ def get_all_projects():
         response = requests.get(f"{API_BASE_URL}/projects/")
         if response.status_code == 200:
             return response.json(), True
-        else:
-            st.error(f"Failed to retrieve projects: {response.text}")
+        elif response.status_code == 404:
             return None, False
+        else:
+            return None,False
     except requests.exceptions.RequestException as e:
-        st.error(f"Error connecting to API: {e}")
         return None, False
 
 #Retrieve Project by Database ID
@@ -63,11 +63,11 @@ def get_project_by_db_id(db_id):
         response = requests.get(f"{API_BASE_URL}/projects/id/{db_id}")
         if response.status_code == 200:
             return response.json(), True
-        else:
-            st.error(f"Failed to retrieve project: {response.text}")
+        elif response.status_code == 404:
             return None, False
+        else:
+            return None,False
     except requests.exceptions.RequestException as e:
-        st.error(f"Error connecting to API: {e}")
         return None, False
     
 #Retrieve Projects by Project Name Keyword (Case-Insensitive)
@@ -76,24 +76,24 @@ def get_projects_by_name_keyword(keyword):
         response = requests.get(f"{API_BASE_URL}/projects/search/{keyword}")
         if response.status_code == 200:
             return response.json(), True
-        else:
-            st.error(f"Failed to retrieve projects: {response.text}")
+        elif response.status_code == 404:
             return None, False
+        else:
+            return None,False
     except requests.exceptions.RequestException as e:
-        st.error(f"Error connecting to API: {e}")
         return None, False
-
+    
 #Retrieve Projects by Project SID
 def get_projects_by_sid(sid):
     try:
         response = requests.get(f"{API_BASE_URL}/projects/sid/{sid}")
         if response.status_code == 200:
             return response.json(), True
-        else:
-            st.error(f"Failed to retrieve projects: {response.text}")
+        elif response.status_code == 404:
             return None, False
+        else:
+            return None,False
     except requests.exceptions.RequestException as e:
-        st.error(f"Error connecting to API: {e}")
         return None, False
     
 #Retrieve Projects by Project Segment
@@ -102,12 +102,12 @@ def get_projects_by_segment(segment):
         response = requests.get(f"{API_BASE_URL}/projects/segment/{segment}")
         if response.status_code == 200:
             return response.json(), True
-        else:
-            st.error(f"Failed to retrieve projects: {response.text}")
+        elif response.status_code == 404:
             return None, False
+        else:
+            return None,False
     except requests.exceptions.RequestException as e:
-        st.error(f"Error connecting to API: {e}")
-        return None, False  
+        return None, False
 
 #Retrieve Projects by Project Type
 def get_projects_by_type(p_type): 
@@ -115,11 +115,11 @@ def get_projects_by_type(p_type):
         response = requests.get(f"{API_BASE_URL}/projects/type/{p_type}")
         if response.status_code == 200:
             return response.json(), True
-        else:
-            st.error(f"Failed to retrieve projects: {response.text}")
+        elif response.status_code == 404:
             return None, False
+        else:
+            return None,False
     except requests.exceptions.RequestException as e:
-        st.error(f"Error connecting to API: {e}")
         return None, False
 
 #Retrieve Projects by Project TA ID
@@ -128,11 +128,11 @@ def get_projects_by_ta_id(ta_id):
         response = requests.get(f"{API_BASE_URL}/projects/ta_id/{ta_id}")
         if response.status_code == 200:
             return response.json(), True
-        else:
-            st.error(f"Failed to retrieve projects: {response.text}")
+        elif response.status_code == 404:
             return None, False
+        else:
+            return None,False
     except requests.exceptions.RequestException as e:
-        st.error(f"Error connecting to API: {e}")
         return None, False
 
 #Retrieve Projects by Project Job ID
@@ -141,11 +141,11 @@ def get_projects_by_job_id(job_id):
         response = requests.get(f"{API_BASE_URL}/projects/job_id/{job_id}")
         if response.status_code == 200:
             return response.json(), True
-        else:
-            st.error(f"Failed to retrieve projects: {response.text}")
+        elif response.status_code == 404:
             return None, False
+        else:
+            return None,False
     except requests.exceptions.RequestException as e:
-        st.error(f"Error connecting to API: {e}")
         return None, False
 
 #Retrieve Projects by Project Job OL ID
@@ -154,11 +154,11 @@ def get_projects_by_job_ol_id(job_ol_id):
         response = requests.get(f"{API_BASE_URL}/projects/job_ol_id/{job_ol_id}")
         if response.status_code == 200:
             return response.json(), True
-        else:
-            st.error(f"Failed to retrieve projects: {response.text}")
+        elif response.status_code == 404:
             return None, False
+        else:
+            return None,False
     except requests.exceptions.RequestException as e:
-        st.error(f"Error connecting to API: {e}")
         return None, False
 
 #Retrieve Projects by Project Job RA ID
@@ -167,11 +167,11 @@ def get_projects_by_job_ra_id(job_ra_id):
         response = requests.get(f"{API_BASE_URL}/projects/job_ra_id/{job_ra_id}")
         if response.status_code == 200:
             return response.json(), True
-        else:
-            st.error(f"Failed to retrieve projects: {response.text}")
+        elif response.status_code == 404:
             return None, False
+        else:
+            return None,False
     except requests.exceptions.RequestException as e:
-        st.error(f"Error connecting to API: {e}")
         return None, False
     
 #Retrieve Projects by Project Status
@@ -180,11 +180,11 @@ def get_projects_by_status(status):
         response = requests.get(f"{API_BASE_URL}/projects/status/{status}")
         if response.status_code == 200:
             return response.json(), True
-        else:
-            st.error(f"Failed to retrieve projects: {response.text}")
+        elif response.status_code == 404:
             return None, False
+        else:
+            return None,False
     except requests.exceptions.RequestException as e:
-        st.error(f"Error connecting to API: {e}")
         return None, False
     
 #Retrieve Projects by Project Manager
@@ -193,11 +193,11 @@ def get_projects_by_manager(manager):
         response = requests.get(f"{API_BASE_URL}/projects/manager/{manager}")
         if response.status_code == 200:
             return response.json(), True
-        else:
-            st.error(f"Failed to retrieve projects: {response.text}")
+        elif response.status_code == 404:
             return None, False
+        else:
+            return None,False
     except requests.exceptions.RequestException as e:
-        st.error(f"Error connecting to API: {e}")
         return None, False
     
 #Retrieve Projects by Project Business Unit
@@ -206,11 +206,11 @@ def get_projects_by_business_unit(b_unit):
         response = requests.get(f"{API_BASE_URL}/projects/business_unit/{b_unit}")
         if response.status_code == 200:
             return response.json(), True
-        else:
-            st.error(f"Failed to retrieve projects: {response.text}")
+        elif response.status_code == 404:
             return None, False
+        else:
+            return None,False
     except requests.exceptions.RequestException as e:
-        st.error(f"Error connecting to API: {e}")
         return None, False
     
 #Retrieve Projects by Project Business Country   
@@ -219,11 +219,11 @@ def get_projects_by_business_country(b_country):
         response = requests.get(f"{API_BASE_URL}/projects/business_country/{b_country}")
         if response.status_code == 200:
             return response.json(), True
-        else:
-            st.error(f"Failed to retrieve projects: {response.text}")
+        elif response.status_code == 404:
             return None, False
+        else:
+            return None,False
     except requests.exceptions.RequestException as e:
-        st.error(f"Error connecting to API: {e}")
         return None, False
     
 #Retrieve Projects by Project Business Name
@@ -232,11 +232,11 @@ def get_projects_by_business_name(b_name):
         response = requests.get(f"{API_BASE_URL}/projects/business_name/{b_name}")
         if response.status_code == 200:
             return response.json(), True
-        else:
-            st.error(f"Failed to retrieve projects: {response.text}")
+        elif response.status_code == 404:
             return None, False
+        else:
+            return None,False
     except requests.exceptions.RequestException as e:
-        st.error(f"Error connecting to API: {e}")
         return None, False
     
 #Retrieve Projects by Project Margin Band
@@ -245,11 +245,11 @@ def get_projects_by_margin_band(f_margin_band):
         response = requests.get(f"{API_BASE_URL}/projects/margin_band/{f_margin_band}")
         if response.status_code == 200:
             return response.json(), True
-        else:
-            st.error(f"Failed to retrieve projects: {response.text}")
+        elif response.status_code == 404:
             return None, False
+        else:
+            return None,False
     except requests.exceptions.RequestException as e:
-        st.error(f"Error connecting to API: {e}")
         return None, False
     
 #Retrieve Projects by Project Date Filter
@@ -270,11 +270,11 @@ def get_projects_by_date(month=None, year=None, since=None, until=None, date_typ
         response = requests.get(f"{API_BASE_URL}/projects/filter/date", params=params)
         if response.status_code == 200:
             return response.json(), True
-        else:
-            st.error(f"Failed to retrieve projects: {response.text}")
+        elif response.status_code == 404:
             return None, False
+        else:
+            return None,False
     except requests.exceptions.RequestException as e:
-        st.error(f"Error connecting to API: {e}")
         return None, False
     
 #Update Project by Database ID
@@ -283,11 +283,11 @@ def update_project_by_db_id(db_id, updates):
         response = requests.put(f"{API_BASE_URL}/projects/{db_id}", json=updates)
         if response.status_code == 200:
             return response.json(), True
-        else:
-            st.error(f"Failed to update project: {response.text}")
+        elif response.status_code == 404:
             return None, False
+        else:
+            return None,False
     except requests.exceptions.RequestException as e:
-        st.error(f"Error connecting to API: {e}")
         return None, False
 
 #Delete Project by Database ID
@@ -295,113 +295,253 @@ def delete_project_by_db_id(db_id):
     try:
         response = requests.delete(f"{API_BASE_URL}/projects/{db_id}")
         if response.status_code == 200:
-            return True
+            return response.json(), True
+        elif response.status_code == 404:
+            return None, False
         else:
-            st.error(f"Failed to delete project: {response.text}")
-            return False
+            return None,False
     except requests.exceptions.RequestException as e:
-        st.error(f"Error connecting to API: {e}")
-        return False
+        return None, False
+    
+#AI Insights Input
+def generate_ai_response(user_query, projects):
+    total_projects = len(projects)
+
+    managers = {}
+    statuses = {}
+
+    for p in projects:
+        managers[p.get("p_manager", "Unknown")] = managers.get(p.get("p_manager", "Unknown"), 0) + 1
+        statuses[p.get("p_status", "Unknown")] = statuses.get(p.get("p_status", "Unknown"), 0) + 1
+
+    top_manager = max(managers, key=managers.get) if managers else "N/A"
+    top_status = max(statuses, key=statuses.get) if statuses else "N/A"
+
+    return f"""
+    🧠 AI Insight
+
+    User Question: {user_query}
+
+    📊 Summary:
+    - Total Projects: {total_projects}
+    - Top Manager (by volume): {top_manager}
+    - Most Common Status: {top_status}
+
+    📌 Sample Projects:
+    {[p.get('p_name') for p in projects[:5]]}
+    """
 
 #Main function to run the Streamlit app
 def main():
-    st.title("Project Tracker Dashboard")
-    st.markdown("Welcome to the Project Tracker! Please use the sidebar to navigate through different sections.")
-    
+    st.title("ProTrack")
+    st.markdown("<h4 style='color: #6c757d; font-weight: 400;'>A Centralised Platform for Project Management and Performance Insights</h4>", unsafe_allow_html=True)
+
     if not check_api_connection():
         st.error("API connection failed. Please start the API server and refresh the page.")
         st.info("To start the API server, run ` uvicorn EP_Project_Tracker:app --reload ` in your terminal.")
         return
     
-    st.success("You are connected to Project Tracker API successfully!")
+    if "connected_toast" not in st.session_state:
+        st.toast("✅ Connected to Project Tracker successfully!")
+        st.session_state.connected_toast = True
 
-    #Sidebar navigation
-    st.sidebar.title("Navigation")
-    page = st.sidebar.selectbox("Go to", ["Dashboard", "Create Project", "Search Projects", "Update Project"])
-    
-    if page == "Dashboard":
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        "📊 Dashboard",
+        "➕ Create Project",
+        "🔍 Search Project",
+        "✏️ Update Project",
+        "🗑️ Delete Project",
+        "🤖 AI Insights"
+        ])
+
+    with tab1:
         show_dashboard()
-    elif page == "Create Project":
+    with tab2:
         create_project_ui()
-    elif page == "Search Projects":
+    with tab3:
         search_projects()
-    elif page == "Update Project":
+    with tab4:
         update_project()
+    with tab5:
+        delete_project()
+    with tab6:
+        ai_insights()
 
 #Dashboard
 def show_dashboard():
-    st.header("Project Dashboard")
-    st.markdown("This section will display key metrics and visualizations about your projects.")
+    st.header("💼 Project Tracker Dashboard")
+    st.markdown("Visual insights into project performance, trends, and distribution.")
 
     response_data, success = get_all_projects()
 
-    if success:
-        projects = response_data["projects"]
-        st.metric("Total Projects", len(projects))
-        col1, col2, col3, col4, col5, col6 = st.columns(6)
-        with col1:
-            st.subheader("Total Projects")
-            status_counts = {}
-            for project in projects:
-                status = project.get("p_status", "Unknown")
-                status_counts[status] = status_counts.get(status, 0) + 1
-            st.bar_chart(status_counts)
-        with col2:
-            st.subheader("Projects by Status")
-            status_counts = {}
-            for project in projects:
-                status = project.get("p_status", "Unknown")
-                status_counts[status] = status_counts.get(status, 0) + 1
-            st.bar_chart(status_counts)
-        with col3:
-            st.subheader("Projects by Business Unit")
-            business_unit_counts = {}
-            for project in projects:
-                business_unit = project.get("b_unit", "Unknown")
-                business_unit_counts[business_unit] = business_unit_counts.get(business_unit, 0) + 1
-            st.bar_chart(business_unit_counts)
-        with col4:
-            st.subheader("Projects by Start Date")
-            start_date_counts = {}
-            for project in projects:
-                start_date = project.get("p_s_date", "Unknown")
-                start_date_counts[start_date] = start_date_counts.get(start_date, 0) + 1
-            st.bar_chart(start_date_counts)
-        with col5:
-            st.subheader("Projects by Margin Band")
-            margin_band_counts = {}
-            for project in projects:
-                margin_band = project.get("margin_band") or project.get("f_margin_band", "Unknown")
-                margin_band_counts[margin_band] = margin_band_counts.get(margin_band, 0) + 1
-            st.bar_chart(margin_band_counts)
-        with col6:
-            st.subheader("Projects by Project Manager")
-            p_manager_counts = {}
-            for project in projects:
-                project_manager = project.get("p_manager", "Unknown")
-                p_manager_counts[project_manager] = p_manager_counts.get(project_manager, 0) + 1
-            st.bar_chart(p_manager_counts)
-        
-        st.markdown("### Recent Projects")
-        recent_projects = sorted(
-            projects, 
-            key=lambda x: x.get("created_at") or "", 
-            reverse=True
-        )
+    if not success:
+        st.error("Failed to load projects for dashboard.")
+        return
+    
+    projects = response_data.get("projects", [])
 
-        for project in recent_projects:
-            st.markdown(f"**{project.get('p_name', 'Unnamed Project')}**, "
-                        f"sid: {project.get('s_id', 'Unknown')},"
-                        f"Status: {project.get('p_status', 'Unknown')}, "
-                        f"Segment: {project.get('p_segment', 'Unknown')}, "
-                        f"Type: {project.get('p_type', 'Unknown')}")
+    # def extract_projects(response_data):
+    #     if isinstance(response_data, list):
+    #         return response_data
+    #     if isinstance(response_data, dict):
+    #         return response_data.get("projects") or response_data.get("data") or []
+    #     return []
+
+    if not projects:
+        st.info("No projects available.")
+        return
+
+# KPI Section
+    st.subheader("📈 Performance KPIs")
+    total = len(projects)
+    completed = sum(1 for p in projects if p.get("p_status") == "Completed")
+    active = sum(1 for p in projects if p.get("p_status") == "Field")
+    # active_statuses = {"Field", "Ongoing", "Active"}
+    # active = sum(1 for p in projects if p.get("p_status") in active_statuses)
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("📦 Total Projects", total)
+    col2.metric("✅ Completed", completed)
+    col3.metric("🚧 Active", active)
+
+    st.markdown("---")
+
+#Data
+    status_counts = {}
+    business_unit_counts = {}
+    manager_counts = {}
+    segment_counts = {}
+    start_date_counts = {}
+
+    for project in projects:
+        status = project.get("p_status", "Unknown")
+        status_counts[status] = status_counts.get(status, 0) + 1
+
+        b_unit = project.get("b_unit", "Unknown")
+        business_unit_counts[b_unit] = business_unit_counts.get(b_unit, 0) + 1
+
+        manager = project.get("p_manager", "Unknown")
+        manager_counts[manager] = manager_counts.get(manager, 0) + 1
+
+        segment = project.get("p_segment", "Unknown")
+        segment_counts[segment] = segment_counts.get(segment, 0) + 1
+
+        if project.get("p_s_date"):
+            month = project["p_s_date"][:7]
+            start_date_counts[month] = start_date_counts.get(month, 0) + 1
+
+#Chart
+    st.subheader("📊 Distributions")
+    col1, col2, col3, col4, col5 = st.columns(5)
+
+    with col1:
+        st.markdown("📌 Projects by Status")
+        st.bar_chart(status_counts)
+
+    with col2:
+        st.markdown("🏢 Projects by Business Unit")
+        st.bar_chart(business_unit_counts)
+
+    with col3:
+        st.markdown("🧩 Projects by Segment")
+        st.bar_chart(segment_counts)
+
+    with col4:
+        st.markdown("📅 Projects by Start Month")
+        st.bar_chart(start_date_counts)
+
+    with col5:
+        st.markdown("👤 Projects by Manager")
+        st.bar_chart(manager_counts)
+
+    st.markdown("---")
+
+#Recent Project
+    st.subheader("📌 Recent Projects")
+
+    recent_projects = sorted(
+        projects,
+        key=lambda x: x.get("created_at") or "",
+        reverse=True
+    )
+
+    for project in recent_projects[:5]:
+        st.markdown(f"""
+            **{project.get('p_name', 'Unnamed Project')}**  
+            🆔 SID: {project.get('s_id', 'Unknown')}  
+            📊 Status: {project.get('p_status', 'Unknown')}  
+            🧩 Segment: {project.get('p_segment', 'Unknown')}  
+            👤 Manager: {project.get('p_manager', 'Unknown')}  
+            📅 Start: {project.get('p_s_date', 'Unknown')}  
+            """)
+
+    # if success:
+    #     projects = response_data["projects"]
+    #     st.metric("Total Projects", len(projects))
+    #     col1, col2, col3, col4, col5, col6 = st.columns(6)
+    #     with col1:
+    #         st.subheader("Total Projects")
+    #         status_counts = {}
+    #         for project in projects:
+    #             status = project.get("p_status", "Unknown")
+    #             status_counts[status] = status_counts.get(status, 0) + 1
+    #         st.bar_chart(status_counts)
+    #     with col2:
+    #         st.subheader("Projects by Status")
+    #         status_counts = {}
+    #         for project in projects:
+    #             status = project.get("p_status", "Unknown")
+    #             status_counts[status] = status_counts.get(status, 0) + 1
+    #         st.bar_chart(status_counts)
+    #     with col3:
+    #         st.subheader("Projects by Business Unit")
+    #         business_unit_counts = {}
+    #         for project in projects:
+    #             business_unit = project.get("b_unit", "Unknown")
+    #             business_unit_counts[business_unit] = business_unit_counts.get(business_unit, 0) + 1
+    #         st.bar_chart(business_unit_counts)
+    #     with col4:
+    #         st.subheader("Projects by Start Date")
+    #         start_date_counts = {}
+    #         for project in projects:
+    #             start_date = project.get("p_s_date", "Unknown")
+    #             start_date_counts[start_date] = start_date_counts.get(start_date, 0) + 1
+    #         st.bar_chart(start_date_counts)
+    #     with col5:
+    #         st.subheader("Projects by Margin Band")
+    #         margin_band_counts = {}
+    #         for project in projects:
+    #             margin_band = project.get("margin_band") or project.get("f_margin_band", "Unknown")
+    #             margin_band_counts[margin_band] = margin_band_counts.get(margin_band, 0) + 1
+    #         st.bar_chart(margin_band_counts)
+    #     with col6:
+    #         st.subheader("Projects by Project Manager")
+    #         p_manager_counts = {}
+    #         for project in projects:
+    #             project_manager = project.get("p_manager", "Unknown")
+    #             p_manager_counts[project_manager] = p_manager_counts.get(project_manager, 0) + 1
+    #         st.bar_chart(p_manager_counts)
+        
+        # st.markdown("### Recent Projects")
+        # recent_projects = sorted(
+        #     projects, 
+        #     key=lambda x: x.get("created_at") or "", 
+        #     reverse=True
+        # )
+
+        # for project in recent_projects:
+        #     st.markdown(f"**{project.get('p_name', 'Unnamed Project')}**, "
+        #                 f"sid: {project.get('s_id', 'Unknown')},"
+        #                 f"Status: {project.get('p_status', 'Unknown')}, "
+        #                 f"Segment: {project.get('p_segment', 'Unknown')}, "
+        #                 f"Type: {project.get('p_type', 'Unknown')}")
 
     else:
-        st.error("Failed to load projects for dashboard.")
+        st.markdown("The end of Project Tracker Dashboard")
 
 #Create Project
 def create_project_ui():
-    st.header("Create New Project")
+    st.header("➕ Create New Project")
     st.markdown("Fill out the form below to create a new project.")
 
     with st.form("create_project_form"):
@@ -538,8 +678,8 @@ def create_project_ui():
             "p_segment": p_segment,
             "p_type": p_type,
             "p_status": p_status,       
-            "p_s_date": p_s_date.strftime("%d-%m-%Y") if p_s_date else None,
-            "p_e_date": p_e_date.strftime("%d-%m-%Y") if p_e_date else None,
+            "p_s_date": p_s_date.isoformat() if p_s_date else None,
+            "p_e_date": p_e_date.isoformat() if p_e_date else None,
             "job_id": job_id,
             "job_ol_id": job_ol_id,
             "job_ra_id": job_ra_id,
@@ -571,6 +711,7 @@ def create_project_ui():
             st.error("Failed to create project. Please try again.")
     
     if "success_msg" in st.session_state:
+        st.markdown("---")
         st.success(st.session_state["success_msg"])
         del st.session_state["success_msg"]
     
@@ -578,7 +719,7 @@ def create_project_ui():
 
 #Search Projects
 def search_projects():
-    st.header("Search Projects")
+    st.header("🔍 Search Projects")
 
     tab1, tab2 = st.tabs(["Show all projects", "Search by criteria"])
 
@@ -759,7 +900,7 @@ def search_projects():
 
 #Update Project
 def update_project():
-    st.header("Update Project")
+    st.header("✏️ Update Project")
     st.markdown("To update a project, please enter the Database ID of the project and the fields you want to update.")
 
     def safe_int(x):
@@ -905,16 +1046,179 @@ def update_project():
                     "f_remarks": safe_str(f_remarks),
                     }
 
+                changes = {}
+                for key, new_value in updates.items():
+                    old_value = project.get(key)
+                    if str(old_value) != str(new_value):
+                        changes[key] = {"old": old_value, "new": new_value}
+
                 response, success = update_project_by_db_id(db_id, updates)
 
                 if success:
-                    st.success("Project updated successfully!")
+                    st.session_state["update_success"] = True 
+                    st.session_state["success_msg"] = f"Project: {updates.get('p_name', 'Unknown')} updated successfully! DB ID: {db_id}"
+                    st.session_state["updated_db_id"] = db_id
+                    st.session_state["updated_changes"] = changes
                     st.rerun()
                 else:
                     st.error("Project update failed. Please try again.")
-    
+
         else:
-            st.info("Please enter a Database ID to load project details for updating.") 
+            st.error("Please enter a valid Database ID to load project details for updating.") 
+    
+    field_labels = {
+        "p_name": "Project Name",
+        "p_manager": "Project Manager",
+        "p_team": "Project Team",
+        "p_segment": "Project Segment",
+        "p_type": "Project Type",
+        "p_status": "Project Status",
+        "p_s_date": "Start Date",
+        "p_e_date": "End Date",
+        "market": "Market",
+        "s_id": "SID",
+        "ta_id": "TA ID",
+        "b_unit": "Business Unit",
+        "b_country": "Business Country",
+        "ir": "IR",
+        "loi": "LOI",
+        "f_deliverables": "Deliverables",
+        "f_revenue": "Revenue",
+        "f_cost": "Cost",
+        "f_nprofit": "Net Profit",
+        "f_margin": "Margin",
+        "f_remarks": "Remarks"
+        }
+
+    if st.session_state.get("update_success"):
+        st.markdown("---")
+        st.success(st.session_state.get("success_msg"))
+        
+        changes = st.session_state.get("updated_changes", {})
+        if changes:
+            st.markdown("### 🔍 Updated Fields:")
+            for field, change in changes.items():
+                label = field_labels.get(field, field)
+                st.markdown(f"- **{label}**: '{change['old']}' → '{change['new']}'")
+        
+        st.session_state["update_success"] = False
+        st.session_state["updated_changes"] = {}
+
+#Delete Project
+def delete_project():
+    st.header("🗑️ Delete Project")
+
+    db_id = st.text_input("Enter Project DB ID")
+
+    if db_id:
+        if not db_id.isdigit():
+            st.error("DB ID must be numeric")
+            return
+
+        db_id = int(db_id)
+
+        response_data, success = get_project_by_db_id(db_id)
+
+        project = None
+        if success and isinstance(response_data, dict):
+            project = (
+                response_data.get("project")
+                or (response_data.get("projects") or [None])[0]
+                or response_data.get("data")
+            )
+
+        if project:
+            st.subheader("📌 Project Details")
+
+            st.write(f"**Name:** {project.get('p_name')}")
+            st.write(f"**Manager:** {project.get('p_manager')}")
+            st.write(f"**Status:** {project.get('p_status')}")
+            st.write(f"**SID:** {project.get('s_id')}")
+
+            st.warning("⚠️ This action cannot be undone.")
+
+            confirm = st.checkbox("Confirm to delete this project")
+
+            if st.button("Delete Project", type="primary"):
+                if not confirm:
+                    st.error("Please confirm deletion first.")
+                    return
+
+                success = delete_project_by_db_id(db_id)
+
+                if success:
+                    st.session_state["delete_success"] = True
+                    st.session_state["delete_msg"] = f"Project {db_id} deleted successfully!"
+                    st.rerun()
+                else:
+                    st.error("Failed to delete project")
+
+        else:
+            st.info("Project not found")
+
+    if st.session_state.get("delete_success"):
+        st.markdown("---")
+        st.success(st.session_state.get("delete_msg"))
+        st.session_state["delete_success"] = False
+        st.session_state["delete_msg"] = ""
+
+#AI Insights
+def ai_insights():
+    st.header("🤖 AI Project Insights")
+
+    projects, success = get_all_projects()
+
+    if not success:
+        st.error("Failed to load data for AI analysis")
+        return
+
+    projects = projects.get("projects", [])
+
+    st.subheader("Ask AI about your projects")
+
+    user_query = st.text_input("Example: Summarize manager performance for this month")
+
+    if st.button("Generate Insight"):
+        if not user_query:
+            st.warning("Please enter a question")
+            return
+
+        ai_response = generate_ai_response(user_query, projects)
+
+        st.markdown("📌 AI Insight")
+        st.write(ai_response)
+
+    period = st.selectbox("Select Period", ["daily", "weekly", "monthly"])
+
+    if st.button("Generate Manager Summary"):
+        res = requests.get(f"{API_BASE_URL}/ai/manager-summary", params={"period": period})
+        if res.status_code == 200:
+            st.json(res.json())
+
+    if st.button("Generate Report"):
+        res = requests.get(f"{API_BASE_URL}/ai/generate-report", params={"period": period})
+        if res.status_code == 200:
+            st.text(res.json()["report"])
+
+    period = st.selectbox(
+        "Select Report Type",
+        ["daily", "weekly", "monthly", "yearly"]
+    )
+
+    if st.button("Generate AI Report"):
+        res = requests.get(
+            f"{API_BASE_URL}/ai/report",
+            params={"period": period}
+        )
+
+        if res.status_code == 200:
+            data = res.json()
+
+            st.success(f"Report Generated for {period}")
+
+            st.text(data["report"])
+        else:
+            st.error("Failed to generate report")
 
 #Display Function
 def display_search_results(response_data):
@@ -923,6 +1227,13 @@ def display_search_results(response_data):
         return
         
     projects = response_data.get("projects", [])
+
+    # def extract_projects(response_data):
+    #     if isinstance(response_data, list):
+    #         return response_data
+    #     if isinstance(response_data, dict):
+    #         return response_data.get("projects") or response_data.get("data") or []
+    #     return []
 
     if not projects:
         st.info("No projects found matching the search criteria.")
