@@ -330,14 +330,16 @@ def update_project_by_db_id(db_id, updates):
 # Delete Project by Database ID
 def delete_project_by_db_id(db_id):
     try:
-        response = requests.delete(f"{API_BASE_URL}/projects/{db_id}")
+        response = requests.delete(f"{API_BASE_URL}/projects/{db_id}", timeout=30)
+
         if response.status_code == 200:
             return response.json(), True
         elif response.status_code == 404:
             return None, False
         else:
             return None, False
-    except requests.exceptions.RequestException as e:
+
+    except requests.exceptions.RequestException:
         return None, False
 
 
@@ -1517,60 +1519,119 @@ def update_project():
 # Delete Project
 def delete_project():
     st.header("🗑️ Delete Project")
+    st.markdown("Enter the Database ID to review the project before deletion.")
 
-    db_id = st.text_input("Enter Project DB ID")
+    # init session state
+    if "confirm_delete" not in st.session_state:
+        st.session_state["confirm_delete"] = False
+    if "delete_target_id" not in st.session_state:
+        st.session_state["delete_target_id"] = None
+    if "delete_success" not in st.session_state:
+        st.session_state["delete_success"] = False
+    if "delete_msg" not in st.session_state:
+        st.session_state["delete_msg"] = ""
 
-    if db_id:
-        if not db_id.isdigit():
-            st.error("DB ID must be numeric")
-            return
+    db_id_input = st.text_input(
+        "Database ID", max_chars=10, placeholder="Enter project DB ID"
+    )
 
-        db_id = int(db_id)
-
-        response_data, success = get_project_by_db_id(db_id)
-
-        project = None
-        if success and isinstance(response_data, dict):
-            project = (
-                response_data.get("project")
-                or (response_data.get("projects") or [None])[0]
-                or response_data.get("data")
+    if not db_id_input:
+        if st.session_state.get("delete_success"):
+            st.success(
+                st.session_state.get("delete_msg", "Project deleted successfully!")
             )
+            st.session_state["delete_success"] = False
+            st.session_state["delete_msg"] = ""
+        return
 
-        if project:
-            st.subheader("📌 Project Details")
+    if not db_id_input.isdigit():
+        st.error("Database ID must be a number.")
+        return
 
-            st.write(f"**Name:** {project.get('p_name')}")
-            st.write(f"**Manager:** {project.get('p_manager')}")
-            st.write(f"**Status:** {project.get('p_status')}")
-            st.write(f"**SID:** {project.get('s_id')}")
+    db_id = int(db_id_input)
 
-            st.warning("⚠️ This action cannot be undone.")
+    response_data, success = get_project_by_db_id(db_id)
 
-            confirm = st.checkbox("Confirm to delete this project")
+    project = None
+    if isinstance(response_data, dict):
+        if "project" in response_data:
+            project = response_data["project"]
+        elif "projects" in response_data and response_data["projects"]:
+            project = response_data["projects"][0]
+        elif "data" in response_data:
+            project = response_data["data"]
 
-            if st.button("Delete Project", type="primary"):
-                if not confirm:
-                    st.error("Please confirm deletion first.")
-                    return
+    if not success or not project:
+        st.error(f"No project found with Database ID {db_id}.")
+        return
 
-            response_data, success = delete_project_by_db_id(db_id)
+    st.markdown("### Project Preview")
+    st.caption("Please confirm the project below before deleting.")
 
-            if success:
-                st.session_state["delete_success"] = True
-                st.session_state["delete_msg"] = (
-                    f"Project {db_id} deleted successfully!"
-                )
+    with st.container(border=True):
+        col1, col2 = st.columns([2, 1])
+
+        with col1:
+            st.markdown(f"#### {project.get('p_name', 'Unnamed Project')}")
+            st.markdown(f"**Project Manager:** {project.get('p_manager', '-')}")
+            st.markdown(f"**Status:** {project.get('p_status', '-')}")
+            st.markdown(f"**Segment:** {project.get('p_segment', '-')}")
+            st.markdown(f"**Type:** {project.get('p_type', '-')}")
+            st.markdown(f"**Client / Business Name:** {project.get('b_name', '-')}")
+            st.markdown(f"**Market:** {project.get('market', '-')}")
+
+        with col2:
+            st.metric("DB ID", project.get("db_id", "-"))
+            st.markdown(f"**SID:** {project.get('s_id', '-')}")
+            st.markdown(f"**Start Date:** {project.get('p_s_date', '-')}")
+            st.markdown(f"**End Date:** {project.get('p_e_date', '-')}")
+            st.markdown(f"**Job ID:** {project.get('job_id', '-')}")
+
+    st.markdown("")
+
+    if (
+        not st.session_state["confirm_delete"]
+        or st.session_state["delete_target_id"] != db_id
+    ):
+        if st.button("Delete Project", type="primary"):
+            st.session_state["confirm_delete"] = True
+            st.session_state["delete_target_id"] = db_id
+            st.rerun()
+
+    if (
+        st.session_state.get("confirm_delete")
+        and st.session_state.get("delete_target_id") == db_id
+    ):
+        st.warning(
+            f"Are you sure you want to delete **{project.get('p_name', 'this project')}** "
+            f"(DB ID: **{project.get('db_id')}**)? This action cannot be undone."
+        )
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            if st.button("✅ Confirm Delete", type="primary"):
+                response_delete, delete_success = delete_project_by_db_id(db_id)
+
+                if delete_success:
+                    st.session_state["delete_success"] = True
+                    st.session_state["delete_msg"] = (
+                        f"Project '{project.get('p_name', db_id)}' deleted successfully."
+                    )
+                    st.session_state["confirm_delete"] = False
+                    st.session_state["delete_target_id"] = None
+                    st.rerun()
+                else:
+                    st.error("Failed to delete project.")
+
+        with col2:
+            if st.button("Cancel"):
+                st.session_state["confirm_delete"] = False
+                st.session_state["delete_target_id"] = None
                 st.rerun()
-            else:
-                st.error("Failed to delete project")
-
-        else:
-            st.info("Project not found")
 
     if st.session_state.get("delete_success"):
-        st.markdown("---")
-        st.success(st.session_state.get("delete_msg"))
+        st.success(st.session_state.get("delete_msg", "Project deleted successfully!"))
         st.session_state["delete_success"] = False
         st.session_state["delete_msg"] = ""
 
@@ -1615,27 +1676,29 @@ def ai_insights():
                 )
 
                 # Call AI backend
-                try:
-                    response = requests.post(
-                        f"{API_BASE_URL}/ai/chat/",
-                        params={"query": user_input},
-                        timeout=30,
-                    )
+            try:
+                response = requests.post(
+                    f"{API_BASE_URL}/ai/chat/", params={"query": user_input}, timeout=30
+                )
 
-                    if response.status_code == 200:
-                        ai_reply = response.json().get(
-                            "response", "No response from AI"
+                if response.status_code == 200:
+                    ai_reply = response.json().get("response", "No response from AI")
+                else:
+                    try:
+                        error_detail = response.json().get("detail", response.text)
+                    except Exception:
+                        error_detail = response.text
+
+                    if "GEMINI_API_KEY is not set" in str(error_detail):
+                        ai_reply = (
+                            "⚠️ AI assistant is not available yet because GEMINI_API_KEY is not set. "
+                            "Please add the API key in your environment settings."
                         )
                     else:
-                        try:
-                            error_detail = response.json().get("detail", response.text)
-                        except Exception:
-                            error_detail = response.text
-
                         ai_reply = f"⚠️ AI request failed: {error_detail}"
 
-                except requests.exceptions.RequestException as e:
-                    ai_reply = f"⚠️ AI request failed: {str(e)}"
+            except requests.exceptions.RequestException as e:
+                ai_reply = f"⚠️ AI request failed: {str(e)}"
 
                 # Save AI reply
                 st.session_state.chat_history.append(
@@ -1703,49 +1766,93 @@ def ai_insights():
 
     # Generate Report
     if st.button("Generate Report 📄"):
-        params = {"period": period}
+        try:
+            params = {"period": period}
 
-        if selected_manager != "All":
-            params["manager"] = selected_manager
+            if selected_manager != "All":
+                params["manager"] = selected_manager
 
-        res = requests.get(f"{API_BASE_URL}/reports/projects", params=params)
-
-        if res.status_code == 200:
-            data = res.json()
-
-            st.success(f"📅 {period.capitalize()} Report")
-
-            # Metrics Display
-            col1, col2, col3 = st.columns(3)
-
-            col1.metric("📦 Total Projects", data["count"])
-            col2.metric("💰 Total Net Profit", f"{data['total_profit']}")
-            col3.metric("📊 Avg Margin (%)", f"{data['avg_margin']}%")
-
-            st.markdown(
-                f"""**Manager Filter:** {selected_manager if selected_manager else 'All'}"""
+            res = requests.get(
+                f"{API_BASE_URL}/reports/projects", params=params, timeout=30
             )
 
-            # Extra Info
-            st.caption(f"Manager: {selected_manager}")
+            if res.status_code == 200:
+                data = res.json()
 
-            # Simple Insight (Nice touch)
-            if data["avg_margin"] < 20:
-                st.warning("⚠️ Low margin detected — potential profitability issue")
+                st.success(f"📅 {period.capitalize()} Report")
 
-            if data["count"] == 0:
-                st.info("No projects found for this selection")
+                col1, col2, col3 = st.columns(3)
+                col1.metric("📦 Total Projects", data.get("count", 0))
+                col2.metric("💰 Total Net Profit", f"{data.get('total_profit', 0)}")
+                col3.metric("📊 Avg Margin (%)", f"{data.get('avg_margin', 0)}%")
+
+                st.markdown(f"**Manager Filter:** {selected_manager}")
+                st.caption(f"Period: {period.capitalize()}")
+
+                if data.get("count", 0) == 0:
+                    st.info("No projects found for this selection.")
+                else:
+                    if data.get("avg_margin", 0) < 20:
+                        st.warning(
+                            "⚠️ Low margin detected — potential profitability issue"
+                        )
+
+                    st.markdown("### Matching Projects")
+                    for project in data.get("projects", []):
+                        with st.container(border=True):
+                            st.markdown(
+                                f"**{project.get('p_name', 'Unnamed Project')}**"
+                            )
+                            st.caption(
+                                f"DB ID: {project.get('db_id')} | "
+                                f"Manager: {project.get('p_manager')} | "
+                                f"Status: {project.get('p_status')}"
+                            )
+                            st.markdown(
+                                f"Start Date: {project.get('p_s_date')}  \n"
+                                f"Created At: {project.get('created_at')}"
+                            )
+
+            else:
+                try:
+                    error_detail = res.json().get("detail", res.text)
+                except Exception:
+                    error_detail = res.text
+
+                st.error(f"Failed to generate report: {error_detail}")
+
+        except requests.exceptions.RequestException as e:
+            st.error(f"Failed to generate report: {str(e)}")
 
     # -----------------------------
     # 🧠 QUICK AI SUMMARY
     # -----------------------------
     st.subheader("🧠 AI Manager Summary")
 
-    if st.button("Generate AI Summary"):
+    col1, col2 = st.columns(2)
+
+    with col1:
+        ai_summary_period = st.selectbox(
+            "Summary Period",
+            ["daily", "weekly", "monthly", "yearly"],
+            index=2,
+            key="ai_summary_period",
+        )
+
+    with col2:
+        ai_summary_manager_display = st.selectbox(
+            "Summary Manager", manager_options, key="ai_summary_manager"
+        )
+        ai_summary_manager = ai_summary_manager_display.split(" (")[0]
+
+    if st.button("Generate AI Summary", key="generate_ai_summary"):
         try:
-            res = requests.get(
-                f"{API_BASE_URL}/ai/report", params={"period": "monthly"}, timeout=30
-            )
+            params = {"period": ai_summary_period}
+
+            if ai_summary_manager != "All":
+                params["manager"] = ai_summary_manager
+
+            res = requests.get(f"{API_BASE_URL}/ai/report", params=params, timeout=30)
 
             if res.status_code == 200:
                 data = res.json()

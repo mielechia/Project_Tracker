@@ -12,7 +12,6 @@ from google import genai
 import os
 
 ai_router = APIRouter()
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 app = FastAPI(title="Project Tracker API", version="1.0.0")
 
 
@@ -190,6 +189,13 @@ def get_start_date(period: str):
 
     days = mapping.get(period, 30)
     return now - timedelta(days=days)
+
+
+def get_genai_client():
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY is not set")
+    return genai.Client(api_key=api_key)
 
 
 # --- Database Initialization ---
@@ -823,45 +829,30 @@ def manager_summary(period: str = "monthly"):
 @ai_router.get("/ai/llm-summary/")
 def llm_summary():
     try:
-        if not os.getenv("GEMINI_API_KEY"):
-            raise HTTPException(status_code=500, detail="GEMINI_API_KEY is not set")
-
+        client = get_genai_client()
         projects = db.get_all_projects()
 
         project_data = "\n".join(f"- {p[1]} | {p[6]} | {p[2]}" for p in projects)
 
         system_prompt = """
-            You are an AI assistant with two modes:
+        You are a professional business/data analyst.
 
-            -----------------------------------
-            MODE 1: Business/Data Analyst
-            -----------------------------------
-            If the question is related to projects, managers, or database insights:
+        Use the provided project data to analyse and summarize:
+        1. Overall project performance
+        2. Manager productivity
+        3. Completion trends
+        4. Risks or bottlenecks
 
-            Act as a professional business/data analyst.
-
-            Use the provided project data to analyse and answer the question.
-
-            Your analysis MUST consider:
-            1. Overall project performance
-            2. Manager productivity
-            3. Completion trends
-            4. Risks or bottlenecks
-
-            Guidelines:
-            - Be concise and structured
-            - Use bullet points where appropriate
-                - Highlight key insights clearly
-            - Provide actionable recommendations if possible
-            """
+        Be concise, structured, and actionable.
+        """
 
         prompt = f"""{system_prompt}
 
-            Project Data:
-            {project_data}
+        Project Data:
+        {project_data}
 
-            Provide a structured summary.
-            """
+        Provide a structured summary.
+        """
 
         response = client.models.generate_content(
             model="gemini-2.5-flash-lite", contents=prompt
@@ -878,7 +869,7 @@ def llm_summary():
 
 
 @ai_router.get("/ai/report")
-def generate_report(period: str = Query("weekly")):
+def generate_report(period: str = Query("weekly"), manager: Optional[str] = None):
     try:
         projects = db.get_all_projects()
         start_date = get_start_date(period)
@@ -897,32 +888,40 @@ def generate_report(period: str = Query("weekly")):
             if created_at >= start_date:
                 filtered.append(p)
 
+        if manager and manager != "All":
+            filtered = [p for p in filtered if p[2] == manager]
+
         total = len(filtered)
         completed = sum(1 for p in filtered if str(p[6] or "").lower() == "completed")
         active = total - completed
-
         completion_rate = round((completed / total) * 100, 2) if total else 0
 
         workload = "high" if active > completed else "balanced"
         performance = "strong" if completion_rate >= 70 else "needs improvement"
         trend = "positive" if completed >= active else "warning"
 
+        manager_label = manager if manager and manager != "All" else "All Managers"
+
         report = f"""📊 {period.upper()} PROJECT REPORT
 
-            📌 Summary:
-            - Total Projects: {total}
-            - Completed: {completed}
-            - Active: {active}
-            - Completion Rate: {completion_rate}%
+        📌 Scope:
+        - Manager: {manager_label}
 
-            📈 Insights:
-            - Workload: {workload}
-            - Performance: {performance}
-            - Trend: {trend}
-            """.strip()
+        📌 Summary:
+        - Total Projects: {total}
+        - Completed: {completed}
+        - Active: {active}
+        - Completion Rate: {completion_rate}%
+
+        📈 Insights:
+        - Workload: {workload}
+        - Performance: {performance}
+        - Trend: {trend}
+        """.strip()
 
         return {
             "period": period,
+            "manager": manager_label,
             "start_date": start_date.isoformat(),
             "total_projects": total,
             "completed": completed,
@@ -945,9 +944,7 @@ def generate_report(period: str = Query("weekly")):
 @ai_router.post("/ai/chat/")
 async def ai_chat(query: str):
     try:
-        if not os.getenv("GEMINI_API_KEY"):
-            raise HTTPException(status_code=500, detail="GEMINI_API_KEY is not set")
-
+        client = get_genai_client()
         projects = db.get_all_projects()
 
         project_text = "\n".join(
@@ -970,8 +967,8 @@ async def ai_chat(query: str):
             Use the provided project data to analyse and answer the question.
 
             Your analysis MUST consider:
-            1. Overall project performance
-            2. Manager productivity
+            . Overall project performance
+            . Manager productivity
             3. Completion trends
             4. Risks or bottlenecks
 
@@ -987,7 +984,7 @@ async def ai_chat(query: str):
             If the question is NOT related to the project data:
 
             - Answer like a normal ChatGPT assistant
-            - You may answer general knowledge questions
+             You may answer general knowledge questions
 
             -----------------------------------
             User Question:
@@ -1012,51 +1009,83 @@ async def ai_chat(query: str):
 
 @app.get("/reports/projects")
 async def project_report(period: str, manager: Optional[str] = None):
+    try:
+        projects = db.get_all_projects()
+        now = datetime.now()
 
-    projects = db.get_all_projects()
+        def parse_created_at(p):
+            created_at_raw = p[29] if len(p) > 29 else None
+            if not created_at_raw:
+                return None
+            try:
+                return datetime.fromisoformat(created_at_raw)
+            except Exception:
+                return None
 
-    now = datetime.now()
+        def filter_by_period(created_at):
+            if not created_at:
+                return False
 
-    def filter_by_period(p):
-        date = datetime.fromisoformat(p[7])
+            if period == "daily":
+                return created_at.date() == now.date()
+            elif period == "weekly":
+                return created_at >= now - timedelta(days=7)
+            elif period == "monthly":
+                return created_at.month == now.month and created_at.year == now.year
+            elif period == "yearly":
+                return created_at.year == now.year
+            return False
 
-        if period == "daily":
-            return date.date() == now.date()
-        elif period == "weekly":
-            return date >= now - timedelta(days=7)
-        elif period == "monthly":
-            return date.month == now.month and date.year == now.year
-        elif period == "yearly":
-            return date.year == now.year
-        return False
+        filtered = []
+        for p in projects:
+            created_at = parse_created_at(p)
+            if filter_by_period(created_at):
+                filtered.append(p)
 
-    filtered = [p for p in projects if filter_by_period(p)]
+        if manager and manager != "All":
+            filtered = [p for p in filtered if p[2] == manager]
 
-    if manager:
-        filtered = [p for p in filtered if p[2] == manager]
+        if len(filtered) == 0:
+            return {
+                "period": period,
+                "manager": manager,
+                "count": 0,
+                "total_profit": 0,
+                "avg_margin": 0,
+                "projects": [],
+                "message": "No data in selected time range",
+            }
 
-    if len(filtered) == 0:
+        total_profit = sum((p[26] or 0) for p in filtered)
+
+        margins = [p[27] for p in filtered if p[27] is not None]
+        avg_margin = round(sum(margins) / len(margins), 2) if margins else 0
+
+        project_list = [
+            {
+                "db_id": p[0],
+                "p_name": p[1],
+                "p_manager": p[2],
+                "p_status": p[6],
+                "p_s_date": p[7],
+                "created_at": p[29],
+            }
+            for p in filtered
+        ]
+
         return {
             "period": period,
             "manager": manager,
-            "count": 0,
-            "total_profit": 0,
-            "avg_margin": 0,
-            "message": "No data in selected time range",
+            "count": len(filtered),
+            "total_profit": round(total_profit, 2),
+            "avg_margin": avg_margin,
+            "projects": project_list,
         }
 
-    total_profit = sum(p[26] or 0 for p in filtered)
-
-    margins = [p[27] for p in filtered if p[27] is not None]
-    avg_margin = round(sum(margins) / len(margins), 2) if margins else 0
-
-    return {
-        "period": period,
-        "manager": manager,
-        "count": len(filtered),
-        "total_profit": round(total_profit, 2),
-        "avg_margin": avg_margin,
-    }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to generate project report: {str(e)}"
+        )
 
 
 app.include_router(ai_router)
