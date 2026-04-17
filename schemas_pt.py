@@ -1,4 +1,4 @@
-#Project Tracker API using FastAPI (endpoint implementations)
+# Project Tracker API using FastAPI (endpoint implementations)
 
 from fastapi import FastAPI, HTTPException, status, APIRouter, Query
 from pydantic import BaseModel, Field, field_validator, model_validator, validator
@@ -15,6 +15,7 @@ ai_router = APIRouter()
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 app = FastAPI(title="Project Tracker API", version="1.0.0")
 
+
 # --- Pydantic Models for Data Validation ---
 class ProjectBase(BaseModel):
     p_name: str = Field(..., min_length=1, max_length=100)
@@ -24,7 +25,9 @@ class ProjectBase(BaseModel):
     p_type: str = Field(..., min_length=1, max_length=100)
     p_status: str = Field(..., min_length=1, max_length=100)
     p_s_date: date = Field(..., description="Project start date in DD-MM-YYYY format")
-    p_e_date: Optional[date] = Field(None, description="Project end date in DD-MM-YYYY format")
+    p_e_date: Optional[date] = Field(
+        None, description="Project end date in DD-MM-YYYY format"
+    )
     job_id: str = Field(..., max_length=12)
     job_ol_id: str = Field(..., max_length=15)
     job_ra_id: str = Field(..., max_length=15)
@@ -46,7 +49,7 @@ class ProjectBase(BaseModel):
     f_margin: Optional[float] = Field(None, ge=0)
     f_remarks: Optional[str] = None
 
-    #To change date format
+    # To change date format
     # @field_validator("p_s_date", "p_e_date", mode="before")
     # @classmethod
     # def parse_ddmmyyyy(cls, v):
@@ -58,7 +61,7 @@ class ProjectBase(BaseModel):
     #         return datetime.strptime(v, "%d-%m-%Y").date()
     #     except ValueError:
     #         raise ValueError("Date must be in DD-MM-YYYY format")
-        
+
     # @validator("p_s_date", "p_e_date")
     # def parse_dates(cls, v):
     #     if isinstance(v, str):
@@ -72,8 +75,10 @@ class ProjectBase(BaseModel):
 
     #     raise ValueError("Invalid date format")
 
+
 class ProjectCreate(ProjectBase):
     pass
+
 
 class ProjectUpdate(BaseModel):
     p_name: Optional[str] = Field(None, min_length=1, max_length=100)
@@ -82,8 +87,8 @@ class ProjectUpdate(BaseModel):
     p_segment: Optional[str] = Field(None, min_length=1, max_length=100)
     p_type: Optional[str] = Field(None, min_length=1, max_length=100)
     p_status: Optional[str] = Field(None, min_length=1, max_length=100)
-    p_s_date: Optional[date] = None 
-    p_e_date: Optional[date] = None 
+    p_s_date: Optional[date] = None
+    p_e_date: Optional[date] = None
     job_id: Optional[str] = Field(None, max_length=12)
     job_ol_id: Optional[str] = Field(None, max_length=15)
     job_ra_id: Optional[str] = Field(None, max_length=15)
@@ -117,7 +122,8 @@ class ProjectUpdate(BaseModel):
             return v
 
         raise ValueError("Invalid date format")
-        
+
+
 class ProjectResponse(BaseModel):
     db_id: int
     p_name: str
@@ -150,6 +156,7 @@ class ProjectResponse(BaseModel):
     f_remarks: Optional[str]
     created_at: Optional[datetime] = None
 
+
 def parse_datetime(value):
     if value:
         try:
@@ -158,10 +165,12 @@ def parse_datetime(value):
             return None
     return None
 
+
 class ProjectListResponse(BaseModel):
     message: str
     count: int
     projects: List[ProjectResponse]
+
 
 class AIInsightSchema(BaseModel):
     id: int
@@ -173,43 +182,70 @@ class AIInsightSchema(BaseModel):
     class Config:
         from_attributes = True
 
+
 def get_start_date(period: str):
     now = datetime.now()
 
-    mapping = {
-        "daily": 1,
-        "weekly": 7,
-        "monthly": 30,
-        "yearly": 365
-    }
+    mapping = {"daily": 1, "weekly": 7, "monthly": 30, "yearly": 365}
 
     days = mapping.get(period, 30)
     return now - timedelta(days=days)
 
+
 # --- Database Initialization ---
 db = DatabaseManager()
 
+
 def project_field(project):
     return ProjectResponse(
-        db_id=project[0], p_name=project[1], p_manager=project[2], p_team=project[3], p_segment=project[4],
-        p_type=project[5], p_status=project[6], p_s_date=project[7], p_e_date=project[8], job_id=project[9],
-        job_ol_id=project[10], job_ra_id=project[11], s_id=project[12], ta_id=project[13], pf_link=project[14],
-        b_unit=project[15], b_country=project[16], b_name=project[17], b_name_id=project[18], market=project[19],
-        ir=project[20], loi=project[21], f_deliverables=project[22], f_currency=project[23], f_revenue=project[24], 
-        f_cost=project[25],f_nprofit=project[26], f_margin=project[27], f_remarks=project[28], created_at=parse_datetime(project[29])
+        db_id=project[0],
+        p_name=project[1],
+        p_manager=project[2],
+        p_team=project[3],
+        p_segment=project[4],
+        p_type=project[5],
+        p_status=project[6],
+        p_s_date=project[7],
+        p_e_date=project[8],
+        job_id=project[9],
+        job_ol_id=project[10],
+        job_ra_id=project[11],
+        s_id=project[12],
+        ta_id=project[13],
+        pf_link=project[14],
+        b_unit=project[15],
+        b_country=project[16],
+        b_name=project[17],
+        b_name_id=project[18],
+        market=project[19],
+        ir=project[20],
+        loi=project[21],
+        f_deliverables=project[22],
+        f_currency=project[23],
+        f_revenue=project[24],
+        f_cost=project[25],
+        f_nprofit=project[26],
+        f_margin=project[27],
+        f_remarks=project[28],
+        created_at=parse_datetime(project[29]),
     )
+
 
 # --- API Endpoints ---
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
 
+
 @app.get("/")
 async def read_root():
     return {"message": "Welcome to the Project Tracker API!", "version": "1.0.0"}
 
+
 # --- Create Project ---
-@app.post("/projects/", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
+@app.post(
+    "/projects/", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_project(project: ProjectCreate):
     try:
         project_data = project.model_dump()
@@ -225,14 +261,18 @@ async def create_project(project: ProjectCreate):
 
         if db_id:
             return ProjectResponse(db_id=db_id, **project_data)
-        
+
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, 
-            detail="Failed to create project (Integrity or Database Error)")
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to create project (Integrity or Database Error)",
+        )
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-        detail=f"An error occurred while creating the project: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while creating the project: {e}",
+        )
+
 
 # --- Retrieve All Projects ---
 @app.get("/projects/", response_model=ProjectListResponse)
@@ -242,74 +282,98 @@ async def get_all_projects():
         formatted_projects = [project_field(project) for project in projects]
 
         return {
-            "message": "Projects retrieved successfully!", 
+            "message": "Projects retrieved successfully!",
             "count": len(formatted_projects),
-            "projects": formatted_projects
+            "projects": formatted_projects,
         }
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-        detail=f"An error occurred while retrieving projects: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while retrieving projects: {e}",
+        )
 
-#--- Filter Projects with Optional Parameters ---
+
+# --- Filter Projects with Optional Parameters ---
 @app.get("/projects/filter/", response_model=ProjectListResponse)
 async def filter_projects(
-    p_name: Optional[str] = None, 
-    s_id: Optional[str] = None, 
-    p_segment: Optional[str] = None, 
-    p_type: Optional[str] = None, 
-    ta_id: Optional[int] = None, 
-    job_id: Optional[int] = None, 
-    job_ol_id: Optional[int] = None, 
-    job_ra_id: Optional[int] = None, 
-    p_status: Optional[str] = None, 
-    p_manager: Optional[str] = None, 
-    b_unit: Optional[str] = None, 
-    b_country: Optional[str] = None, 
-    b_name: Optional[str] = None, 
-    b_status: Optional[str] = None, 
-    margin_band: Optional[str] = None):
-    
+    p_name: Optional[str] = None,
+    s_id: Optional[str] = None,
+    p_segment: Optional[str] = None,
+    p_type: Optional[str] = None,
+    ta_id: Optional[int] = None,
+    job_id: Optional[int] = None,
+    job_ol_id: Optional[int] = None,
+    job_ra_id: Optional[int] = None,
+    p_status: Optional[str] = None,
+    p_manager: Optional[str] = None,
+    b_unit: Optional[str] = None,
+    b_country: Optional[str] = None,
+    b_name: Optional[str] = None,
+    b_status: Optional[str] = None,
+    margin_band: Optional[str] = None,
+):
+
     try:
-        projects = db.filter_projects(name=p_name, sid=s_id, segment=p_segment, type=p_type, ta_id=ta_id,
-                                      job_id=job_id, job_ol_id=job_ol_id, job_ra_id=job_ra_id,
-                                      status=p_status, manager=p_manager, business_unit=b_unit,
-                                      business_country=b_country, business_name=b_name,
-                                      business_status=b_status, margin_band=margin_band)
+        projects = db.filter_projects(
+            name=p_name,
+            sid=s_id,
+            segment=p_segment,
+            type=p_type,
+            ta_id=ta_id,
+            job_id=job_id,
+            job_ol_id=job_ol_id,
+            job_ra_id=job_ra_id,
+            status=p_status,
+            manager=p_manager,
+            business_unit=b_unit,
+            business_country=b_country,
+            business_name=b_name,
+            business_status=b_status,
+            margin_band=margin_band,
+        )
         formatted_projects = [project_field(project) for project in projects]
 
         return {
-            "message": "Projects retrieved successfully with applied filters!", 
+            "message": "Projects retrieved successfully with applied filters!",
             "count": len(formatted_projects),
-            "projects": formatted_projects
+            "projects": formatted_projects,
         }
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-        detail=f"An error occurred while filtering projects: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while filtering projects: {e}",
+        )
 
-#Retrieve Project by Database ID
+
+# Retrieve Project by Database ID
 @app.get("/projects/id/{db_id}")
 async def get_project_by_db_id(db_id: int):
     try:
         project = db.get_project_by_db_id(db_id)
         if not project:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
+            )
         formatted_project = project_field(project)
-        
+
         return {
             "message": f"Project with ID '{db_id}' retrieved successfully!",
             "count": len([formatted_project]),
-            "projects": [formatted_project] 
+            "projects": [formatted_project],
         }
-    
+
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-        detail=f"An error occurred while retrieving the project: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while retrieving the project: {e}",
+        )
 
-#Retrieve Projects by Project Name Keyword (Case-Insensitive)
+
+# Retrieve Projects by Project Name Keyword (Case-Insensitive)
 @app.get("/projects/search/{keyword}", response_model=ProjectListResponse)
 async def get_projects_by_name_keyword(keyword: str):
     try:
@@ -317,16 +381,19 @@ async def get_projects_by_name_keyword(keyword: str):
         formatted_projects = [project_field(project) for project in projects]
 
         return {
-            "message": f"Projects matching '{keyword}' retrieved successfully!", 
+            "message": f"Projects matching '{keyword}' retrieved successfully!",
             "count": len(formatted_projects),
-            "projects": formatted_projects
+            "projects": formatted_projects,
         }
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-        detail=f"An error occurred while searching for projects: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while searching for projects: {e}",
+        )
 
-#Retrieve Projects by Project SID
+
+# Retrieve Projects by Project SID
 @app.get("/projects/sid/{sid}", response_model=ProjectListResponse)
 async def get_projects_by_s_id(sid: str):
     try:
@@ -334,16 +401,19 @@ async def get_projects_by_s_id(sid: str):
         formatted_projects = [project_field(project) for project in projects]
 
         return {
-            "message": f"Projects with SID '{sid}' retrieved successfully!", 
+            "message": f"Projects with SID '{sid}' retrieved successfully!",
             "count": len(formatted_projects),
-            "projects": formatted_projects
+            "projects": formatted_projects,
         }
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-        detail=f"An error occurred while retrieving projects: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while retrieving projects: {e}",
+        )
 
-#Retrieve Projects by Project Segment
+
+# Retrieve Projects by Project Segment
 @app.get("/projects/segment/{segment}", response_model=ProjectListResponse)
 async def get_projects_by_p_segment(segment: str):
     try:
@@ -351,16 +421,19 @@ async def get_projects_by_p_segment(segment: str):
         formatted_projects = [project_field(project) for project in projects]
 
         return {
-            "message": f"Projects in segment '{segment}' retrieved successfully!", 
+            "message": f"Projects in segment '{segment}' retrieved successfully!",
             "count": len(formatted_projects),
-            "projects": formatted_projects
+            "projects": formatted_projects,
         }
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-        detail=f"An error occurred while retrieving projects: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while retrieving projects: {e}",
+        )
 
-#Retrieve Projects by Project Type
+
+# Retrieve Projects by Project Type
 @app.get("/projects/type/{type}", response_model=ProjectListResponse)
 async def get_projects_by_p_type(p_type: str):
     try:
@@ -368,16 +441,19 @@ async def get_projects_by_p_type(p_type: str):
         formatted_projects = [project_field(project) for project in projects]
 
         return {
-            "message": f"Projects with type '{p_type}' retrieved successfully!", 
+            "message": f"Projects with type '{p_type}' retrieved successfully!",
             "count": len(formatted_projects),
-            "projects": formatted_projects
+            "projects": formatted_projects,
         }
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-        detail=f"An error occurred while retrieving projects: {e}")
-    
-#Retrieve Projects by Project TA ID
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while retrieving projects: {e}",
+        )
+
+
+# Retrieve Projects by Project TA ID
 @app.get("/projects/ta_id/{ta_id}", response_model=ProjectListResponse)
 async def get_projects_by_ta_id(ta_id: int):
     try:
@@ -385,16 +461,19 @@ async def get_projects_by_ta_id(ta_id: int):
         formatted_projects = [project_field(project) for project in projects]
 
         return {
-            "message": f"Projects with TA ID '{ta_id}' retrieved successfully!", 
+            "message": f"Projects with TA ID '{ta_id}' retrieved successfully!",
             "count": len(formatted_projects),
-            "projects": formatted_projects
+            "projects": formatted_projects,
         }
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-        detail=f"An error occurred while retrieving projects: {e}") 
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while retrieving projects: {e}",
+        )
 
-#Retrieve Projects by Project Job ID
+
+# Retrieve Projects by Project Job ID
 @app.get("/projects/job_id/{job_id}", response_model=ProjectListResponse)
 async def get_projects_by_job_id(job_id: str):
     try:
@@ -402,16 +481,19 @@ async def get_projects_by_job_id(job_id: str):
         formatted_projects = [project_field(project) for project in projects]
 
         return {
-            "message": f"Projects with Job ID '{job_id}' retrieved successfully!", 
+            "message": f"Projects with Job ID '{job_id}' retrieved successfully!",
             "count": len(formatted_projects),
-            "projects": formatted_projects
+            "projects": formatted_projects,
         }
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-        detail=f"An error occurred while retrieving projects: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while retrieving projects: {e}",
+        )
 
-#Retrieve Projects by Project Job OL ID
+
+# Retrieve Projects by Project Job OL ID
 @app.get("/projects/job_ol_id/{job_ol_id}", response_model=ProjectListResponse)
 async def get_projects_by_job_ol_id(job_ol_id: str):
     try:
@@ -419,33 +501,39 @@ async def get_projects_by_job_ol_id(job_ol_id: str):
         formatted_projects = [project_field(project) for project in projects]
 
         return {
-            "message": f"Projects with Job OL ID '{job_ol_id}' retrieved successfully!", 
+            "message": f"Projects with Job OL ID '{job_ol_id}' retrieved successfully!",
             "count": len(formatted_projects),
-            "projects": formatted_projects
+            "projects": formatted_projects,
         }
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-        detail=f"An error occurred while retrieving projects: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while retrieving projects: {e}",
+        )
 
-#Retrieve Projects by Project Job RA ID
+
+# Retrieve Projects by Project Job RA ID
 @app.get("/projects/job_ra_id/{job_ra_id}", response_model=ProjectListResponse)
-async def get_projects_by_job_ra_id(job_ra_id: str):   
+async def get_projects_by_job_ra_id(job_ra_id: str):
     try:
         projects = db.get_projects_by_job_ra_id(job_ra_id)
         formatted_projects = [project_field(project) for project in projects]
 
         return {
-            "message": f"Projects with Job RA ID '{job_ra_id}' retrieved successfully!", 
+            "message": f"Projects with Job RA ID '{job_ra_id}' retrieved successfully!",
             "count": len(formatted_projects),
-            "projects": formatted_projects
+            "projects": formatted_projects,
         }
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-        detail=f"An error occurred while retrieving projects: {e}") 
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while retrieving projects: {e}",
+        )
 
-#Retrieve Projects by Project Status
+
+# Retrieve Projects by Project Status
 @app.get("/projects/status/{p_status}", response_model=ProjectListResponse)
 async def get_projects_by_p_status(p_status: str):
     try:
@@ -453,16 +541,19 @@ async def get_projects_by_p_status(p_status: str):
         formatted_projects = [project_field(project) for project in projects]
 
         return {
-            "message": f"Projects with status '{p_status}' retrieved successfully!", 
+            "message": f"Projects with status '{p_status}' retrieved successfully!",
             "count": len(formatted_projects),
-            "projects": formatted_projects
+            "projects": formatted_projects,
         }
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-        detail=f"An error occurred while retrieving projects: {e}")
-    
-#Retrieve Projects by Project Manager
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while retrieving projects: {e}",
+        )
+
+
+# Retrieve Projects by Project Manager
 @app.get("/projects/manager/{manager}", response_model=ProjectListResponse)
 async def get_projects_by_p_manager(p_manager: str):
     try:
@@ -470,16 +561,19 @@ async def get_projects_by_p_manager(p_manager: str):
         formatted_projects = [project_field(project) for project in projects]
 
         return {
-            "message": f"Projects with manager '{p_manager}' retrieved successfully!", 
+            "message": f"Projects with manager '{p_manager}' retrieved successfully!",
             "count": len(formatted_projects),
-            "projects": formatted_projects
+            "projects": formatted_projects,
         }
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-        detail=f"An error occurred while retrieving projects: {e}") 
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while retrieving projects: {e}",
+        )
 
-#Retrieve Projects by Project Business Unit
+
+# Retrieve Projects by Project Business Unit
 @app.get("/projects/business_unit/{b_unit}", response_model=ProjectListResponse)
 async def get_projects_by_b_unit(b_unit: str):
     try:
@@ -487,16 +581,19 @@ async def get_projects_by_b_unit(b_unit: str):
         formatted_projects = [project_field(project) for project in projects]
 
         return {
-            "message": f"Projects in business unit '{b_unit}' retrieved successfully!", 
+            "message": f"Projects in business unit '{b_unit}' retrieved successfully!",
             "count": len(formatted_projects),
-            "projects": formatted_projects
+            "projects": formatted_projects,
         }
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-        detail=f"An error occurred while retrieving projects: {e}") 
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while retrieving projects: {e}",
+        )
 
-#Retrieve Projects by Project Business Country   
+
+# Retrieve Projects by Project Business Country
 @app.get("/projects/business_country/{b_country}", response_model=ProjectListResponse)
 async def get_projects_by_b_country(b_country: str):
     try:
@@ -504,16 +601,19 @@ async def get_projects_by_b_country(b_country: str):
         formatted_projects = [project_field(project) for project in projects]
 
         return {
-            "message": f"Projects in business country '{b_country}' retrieved successfully!", 
+            "message": f"Projects in business country '{b_country}' retrieved successfully!",
             "count": len(formatted_projects),
-            "projects": formatted_projects
+            "projects": formatted_projects,
         }
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-        detail=f"An error occurred while retrieving projects: {e}")
-    
-#Retrieve Projects by Project Business Name
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while retrieving projects: {e}",
+        )
+
+
+# Retrieve Projects by Project Business Name
 @app.get("/projects/business_name/{b_name}", response_model=ProjectListResponse)
 async def get_projects_by_b_name(b_name: str):
     try:
@@ -521,16 +621,19 @@ async def get_projects_by_b_name(b_name: str):
         formatted_projects = [project_field(project) for project in projects]
 
         return {
-            "message": f"Projects with business name '{b_name}' retrieved successfully!", 
+            "message": f"Projects with business name '{b_name}' retrieved successfully!",
             "count": len(formatted_projects),
-            "projects": formatted_projects
+            "projects": formatted_projects,
         }
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-        detail=f"An error occurred while retrieving projects: {e}")
-    
-#Retrieve Projects by Project Business Status
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while retrieving projects: {e}",
+        )
+
+
+# Retrieve Projects by Project Business Status
 @app.get("/projects/business_status/{b_status}", response_model=ProjectListResponse)
 async def get_projects_by_b_status(b_status: str):
     try:
@@ -538,16 +641,19 @@ async def get_projects_by_b_status(b_status: str):
         formatted_projects = [project_field(project) for project in projects]
 
         return {
-            "message": f"Projects with business status '{b_status}' retrieved successfully!", 
+            "message": f"Projects with business status '{b_status}' retrieved successfully!",
             "count": len(formatted_projects),
-            "projects": formatted_projects
+            "projects": formatted_projects,
         }
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-        detail=f"An error occurred while retrieving projects: {e}")
-    
-#Retrieve Projects by Project Margin Band
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while retrieving projects: {e}",
+        )
+
+
+# Retrieve Projects by Project Margin Band
 @app.get("/projects/margin_band/{f_margin_band}", response_model=ProjectListResponse)
 async def get_projects_by_f_margin_band(f_margin_band: str):
     try:
@@ -555,193 +661,407 @@ async def get_projects_by_f_margin_band(f_margin_band: str):
         formatted_projects = [project_field(project) for project in projects]
 
         return {
-            "message": f"Projects with margin band '{f_margin_band}' retrieved successfully!", 
+            "message": f"Projects with margin band '{f_margin_band}' retrieved successfully!",
             "count": len(formatted_projects),
-            "projects": formatted_projects
+            "projects": formatted_projects,
         }
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-        detail=f"An error occurred while retrieving projects: {e}")
-    
-#Retrieve Projects by Project Date Filter
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while retrieving projects: {e}",
+        )
+
+
+# Retrieve Projects by Project Date Filter
 @app.get("/projects/filter/date", response_model=ProjectListResponse)
 async def get_projects_by_date(
-    month: Optional[int] = None, 
-    year: Optional[int] = None, 
-    since: bool = False, 
-    date_type: str = "start"):
+    month: Optional[int] = None,
+    year: Optional[int] = None,
+    since: bool = False,
+    date_type: str = "start",
+):
     if date_type not in ["start", "end"]:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="date_type must be 'start' or 'end'")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="date_type must be 'start' or 'end'",
+        )
     try:
-        projects = db.get_projects_by_date_filter(month=month, year=year, since=since, date_type=date_type)
+        projects = db.get_projects_by_date_filter(
+            month=month, year=year, since=since, date_type=date_type
+        )
         formatted_projects = [project_field(project) for project in projects]
 
         return {
-            "message": f"Projects retrieved successfully using '{date_type}' date filter!", 
+            "message": f"Projects retrieved successfully using '{date_type}' date filter!",
             "count": len(formatted_projects),
-            "projects": formatted_projects
+            "projects": formatted_projects,
         }
 
     except ValueError as ve:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-        detail=f"An error occurred while retrieving projects by date: {e}") 
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while retrieving projects by date: {e}",
+        )
 
-#--- Update Project by Database ID ---
+
+# --- Update Project by Database ID ---
 @app.put("/projects/{db_id}", response_model=ProjectResponse)
 async def update_project_by_db_id(db_id: int, updates: ProjectUpdate):
     try:
         update_data = updates.model_dump(exclude_unset=True)
 
         if not update_data:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields provided for update")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No fields provided for update",
+            )
 
         if "p_s_date" in update_data and update_data["p_s_date"]:
             update_data["p_s_date"] = update_data["p_s_date"].isoformat()
+
         if "p_e_date" in update_data and update_data["p_e_date"]:
             update_data["p_e_date"] = update_data["p_e_date"].isoformat()
 
+        if (
+            update_data.get("p_s_date")
+            and update_data.get("p_e_date")
+            and update_data["p_e_date"] < update_data["p_s_date"]
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Project end date cannot be before project start date",
+            )
+
         success = db.update_project(db_id, **update_data)
-        if not success: 
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, 
-            detail=f"Project with ID '{db_id}' not found")
-    
-        
+
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Project with ID '{db_id}' not found",
+            )
+
         updated_project = db.get_project_by_db_id(db_id)
+
+        if not updated_project:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Updated project with ID '{db_id}' could not be retrieved",
+            )
+
         return project_field(updated_project)
 
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-        detail=f"An error occurred while updating the project: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while updating the project: {e}",
+        )
 
-#--- Delete Project by Database ID ---
+
+# --- Delete Project by Database ID ---
 @app.delete("/projects/{db_id}")
 async def delete_project_by_db_id(db_id: int):
     try:
         project = db.get_project_by_db_id(db_id)
         if not project:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, 
-            detail=f"Project with ID '{db_id}' not found")
-        
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Project with ID '{db_id}' not found",
+            )
+
         success = db.delete_project(db_id)
         if success:
-            return {"message": f"Project with ID '{db_id}' deleted successfully!",
-                    "count": 0, 
-                    "projects": []}
+            return {
+                "message": f"Project with ID '{db_id}' deleted successfully!",
+                "count": 0,
+                "projects": [],
+            }
         else:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, 
-            detail=f"Project with ID '{db_id}' not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Project with ID '{db_id}' not found",
+            )
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-        detail=f"An error occurred while deleting the project: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while deleting the project: {e}",
+        )
 
-#--- AI Insights ---
+
+# --- AI Insights ---
 @ai_router.get("/ai/manager-summary/")
 def manager_summary(period: str = "monthly"):
-    projects = db.get_all_projects()
+    try:
+        projects = db.get_all_projects()
 
-    summary = defaultdict(lambda: {"total": 0, "completed": 0, "active": 0})
+        summary = defaultdict(lambda: {"total": 0, "completed": 0, "active": 0})
 
-    for p in projects:
-        manager = p.p_manager or "Unknown"
-        summary[manager]["total"] += 1
+        for p in projects:
+            manager = p[2] or "Unknown"
+            status = p[6] or "Unknown"
 
-        if p.p_status == "Completed":
-            summary[manager]["completed"] += 1
-        else:
-            summary[manager]["active"] += 1
+            summary[manager]["total"] += 1
 
-    return {"period": period,"summary": summary}
+            if str(status).lower() == "completed":
+                summary[manager]["completed"] += 1
+            else:
+                summary[manager]["active"] += 1
+
+        return {"period": period, "summary": dict(summary)}
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to generate manager summary: {str(e)}"
+        )
+
 
 @ai_router.get("/ai/llm-summary/")
 def llm_summary():
-    projects = db.get_all_projects()
+    try:
+        if not os.getenv("GEMINI_API_KEY"):
+            raise HTTPException(status_code=500, detail="GEMINI_API_KEY is not set")
 
-    project_data = "\n".join(f"- {p.p_name} | {p.p_status} | {p.p_manager}" for p in projects)
+        projects = db.get_all_projects()
 
-    system_prompt = (
-        "You are a senior project analyst. "
-        "Analyze project data and provide insights on:"
-        "1. Overall project performance"
-        "2. Manager productivity"
-        "3. Completion trends"
-        "4. Any risks or bottlenecks"
-        "Be concise and structured."
-    )
-    prompt = f"""{system_prompt} Project Data: {project_data} Provide a structured summary."""
-    response = client.models.generate_content(model="gemini-2.5-flash-lite", contents=prompt)
-    return {"ai_summary": response.text}
+        project_data = "\n".join(f"- {p[1]} | {p[6]} | {p[2]}" for p in projects)
 
-@ai_router.get("/report")
+        system_prompt = """
+            You are an AI assistant with two modes:
+
+            -----------------------------------
+            MODE 1: Business/Data Analyst
+            -----------------------------------
+            If the question is related to projects, managers, or database insights:
+
+            Act as a professional business/data analyst.
+
+            Use the provided project data to analyse and answer the question.
+
+            Your analysis MUST consider:
+            1. Overall project performance
+            2. Manager productivity
+            3. Completion trends
+            4. Risks or bottlenecks
+
+            Guidelines:
+            - Be concise and structured
+            - Use bullet points where appropriate
+                - Highlight key insights clearly
+            - Provide actionable recommendations if possible
+            """
+
+        prompt = f"""{system_prompt}
+
+            Project Data:
+            {project_data}
+
+            Provide a structured summary.
+            """
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash-lite", contents=prompt
+        )
+
+        return {"ai_summary": response.text}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to generate LLM summary: {str(e)}"
+        )
+
+
+@ai_router.get("/ai/report")
 def generate_report(period: str = Query("weekly")):
+    try:
+        projects = db.get_all_projects()
+        start_date = get_start_date(period)
+
+        filtered = []
+        for p in projects:
+            created_at_raw = p[29] if len(p) > 29 else None
+            if not created_at_raw:
+                continue
+
+            try:
+                created_at = datetime.fromisoformat(created_at_raw)
+            except Exception:
+                continue
+
+            if created_at >= start_date:
+                filtered.append(p)
+
+        total = len(filtered)
+        completed = sum(1 for p in filtered if str(p[6] or "").lower() == "completed")
+        active = total - completed
+
+        completion_rate = round((completed / total) * 100, 2) if total else 0
+
+        workload = "high" if active > completed else "balanced"
+        performance = "strong" if completion_rate >= 70 else "needs improvement"
+        trend = "positive" if completed >= active else "warning"
+
+        report = f"""📊 {period.upper()} PROJECT REPORT
+
+            📌 Summary:
+            - Total Projects: {total}
+            - Completed: {completed}
+            - Active: {active}
+            - Completion Rate: {completion_rate}%
+
+            📈 Insights:
+            - Workload: {workload}
+            - Performance: {performance}
+            - Trend: {trend}
+            """.strip()
+
+        return {
+            "period": period,
+            "start_date": start_date.isoformat(),
+            "total_projects": total,
+            "completed": completed,
+            "active": active,
+            "completion_rate": completion_rate,
+            "insights": {
+                "workload": workload,
+                "performance": performance,
+                "trend": trend,
+            },
+            "report": report,
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to generate AI report: {str(e)}"
+        )
+
+
+@ai_router.post("/ai/chat/")
+async def ai_chat(query: str):
+    try:
+        if not os.getenv("GEMINI_API_KEY"):
+            raise HTTPException(status_code=500, detail="GEMINI_API_KEY is not set")
+
+        projects = db.get_all_projects()
+
+        project_text = "\n".join(
+            [
+                f"{p[1]} | Manager: {p[2]} | Status: {p[6]} | Start: {p[7]}"
+                for p in projects
+            ]
+        )
+
+        prompt = f"""
+            You are an AI assistant with two modes:
+
+            -----------------------------------
+            MODE 1: Business/Data Analyst
+            -----------------------------------
+            If the question is related to projects, managers, or database insights:
+
+            Act as a professional business/data analyst.
+
+            Use the provided project data to analyse and answer the question.
+
+            Your analysis MUST consider:
+            1. Overall project performance
+            2. Manager productivity
+            3. Completion trends
+            4. Risks or bottlenecks
+
+            Guidelines:
+            - Be concise and structured
+            - Use bullet points where appropriate
+            - Highlight key insights clearly
+            - Provide actionable recommendations if possible
+
+            -----------------------------------
+            MODE 2: General Assistant
+            -----------------------------------
+            If the question is NOT related to the project data:
+
+            - Answer like a normal ChatGPT assistant
+            - You may answer general knowledge questions
+
+            -----------------------------------
+            User Question:
+            {query}
+
+            -----------------------------------
+            Project Data:
+            {project_text}
+            """
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash-lite", contents=prompt
+        )
+
+        return {"response": response.text}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI chat failed: {str(e)}")
+
+
+@app.get("/reports/projects")
+async def project_report(period: str, manager: Optional[str] = None):
+
     projects = db.get_all_projects()
-    start_date = get_start_date(period)
 
-    filtered = [p for p in projects
-        if p.created_at and p.created_at >= start_date]
+    now = datetime.now()
 
-    total = len(filtered)
-    completed = sum(1 for p in filtered if (p.p_status or "").lower() == "completed")
-    active = total - completed
+    def filter_by_period(p):
+        date = datetime.fromisoformat(p[7])
 
-    completion_rate = round((completed / total) * 100, 2) if total else 0
+        if period == "daily":
+            return date.date() == now.date()
+        elif period == "weekly":
+            return date >= now - timedelta(days=7)
+        elif period == "monthly":
+            return date.month == now.month and date.year == now.year
+        elif period == "yearly":
+            return date.year == now.year
+        return False
 
-    workload = "high" if active > completed else "balanced"
-    performance = "strong" if completion_rate >= 70 else "needs improvement"
-    trend = "positive" if completed >= active else "warning"
+    filtered = [p for p in projects if filter_by_period(p)]
 
-    report = f"""📊 {period.upper()} PROJECT REPORT
+    if manager:
+        filtered = [p for p in filtered if p[2] == manager]
 
-    📌 Summary:
-    - Total Projects: {total}
-    - Completed: {completed}
-    - Active: {active}
-    - Completion Rate: {completion_rate}%
+    if len(filtered) == 0:
+        return {
+            "period": period,
+            "manager": manager,
+            "count": 0,
+            "total_profit": 0,
+            "avg_margin": 0,
+            "message": "No data in selected time range",
+        }
 
-    📈 Insights:
-    - Workload: {workload}
-    - Performance: {performance}
-    - Trend: {trend}
-    """.strip()
+    total_profit = sum(p[26] or 0 for p in filtered)
+
+    margins = [p[27] for p in filtered if p[27] is not None]
+    avg_margin = round(sum(margins) / len(margins), 2) if margins else 0
 
     return {
         "period": period,
-        "start_date": start_date,
-        "total_projects": total,
-        "completed": completed,
-        "active": active,
-        "completion_rate": completion_rate,
-        "insights": {
-            "workload": "high" if active > completed else "balanced",
-            "performance": "strong" if completion_rate > 70 else "needs improvement",
-            "trend": "positive" if completed >= active else "warning"
-        }}
+        "manager": manager,
+        "count": len(filtered),
+        "total_profit": round(total_profit, 2),
+        "avg_margin": avg_margin,
+    }
 
-@ai_router.post("/chat/")
-def ai_chat(question: str, use_projects: bool = False):
-    system_prompt = (
-        "You are a helpful assistant. "
-        "You can answer general questions clearly and concisely. "
-        "If project data is provided, analyse it and give insights."
-        "Please use UK/GB English for all output."
-    )
 
-    context = ""
+app.include_router(ai_router)
 
-    if use_projects:
-        projects = db.get_all_projects()
-        project_data = "\n".join(f"- {p.p_name} | {p.p_status} | {p.p_manager}" for p in projects)
-        context = f"\n\nProject Data:\n{project_data}"
-    
-    prompt = f"""{system_prompt} {context} User question:{question}"""
-    response = client.models.generate_content(model="gemini-2.5-flash-lite", contents=prompt)
-    return {"answer": response.text}
-
-if __name__ == "__main__": 
+if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
