@@ -6,10 +6,10 @@ from typing import List, Optional
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 from db_pt import DatabaseManager
-from sqlalchemy import Column, Integer, String, Text, DateTime
 from collections import defaultdict
 from google import genai
 import os
+import requests
 
 ai_router = APIRouter()
 app = FastAPI(title="Project Tracker API", version="1.0.0")
@@ -196,6 +196,78 @@ def get_genai_client():
     if not api_key:
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY is not set")
     return genai.Client(api_key=api_key)
+
+
+def get_kl_time_string():
+    kl_now = datetime.now(ZoneInfo("Asia/Kuala_Lumpur"))
+    return kl_now.strftime("%A, %d %B %Y, %H:%M")
+
+
+def is_weather_question(text: str) -> bool:
+    if not text:
+        return False
+
+    lower_text = text.lower()
+    weather_keywords = [
+        "weather",
+        "temperature",
+        "forecast",
+        "rain",
+        "raining",
+        "humid",
+        "humidity",
+        "wind",
+        "sunny",
+        "cloudy",
+        "storm",
+        "thunderstorm",
+        "hot today",
+        "cold today",
+    ]
+    return any(keyword in lower_text for keyword in weather_keywords)
+
+
+def fetch_live_weather(location: str = "Kuala Lumpur"):
+    api_key = os.getenv("WEATHERAPI_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="WEATHERAPI_KEY is not set")
+
+    response = requests.get(
+        "https://api.weatherapi.com/v1/current.json",
+        params={"key": api_key, "q": location, "aqi": "no"},
+        timeout=15,
+    )
+
+    if response.status_code != 200:
+        try:
+            error_detail = response.json()
+        except Exception:
+            error_detail = response.text
+
+        raise HTTPException(
+            status_code=500, detail=f"Weather API request failed: {error_detail}"
+        )
+
+    data = response.json()
+
+    location_data = data.get("location", {})
+    current_data = data.get("current", {})
+
+    return {
+        "name": location_data.get("name", location),
+        "region": location_data.get("region", ""),
+        "country": location_data.get("country", ""),
+        "localtime": location_data.get("localtime", ""),
+        "condition": current_data.get("condition", {}).get("text", "Unknown"),
+        "temp_c": current_data.get("temp_c"),
+        "feelslike_c": current_data.get("feelslike_c"),
+        "humidity": current_data.get("humidity"),
+        "wind_kph": current_data.get("wind_kph"),
+        "wind_dir": current_data.get("wind_dir"),
+        "precip_mm": current_data.get("precip_mm"),
+        "cloud": current_data.get("cloud"),
+        "last_updated": current_data.get("last_updated"),
+    }
 
 
 # --- Database Initialization ---
@@ -944,6 +1016,110 @@ def generate_report(period: str = Query("weekly"), manager: Optional[str] = None
 @ai_router.post("/ai/chat/")
 async def ai_chat(query: str):
     try:
+        user_query = (query or "").strip()
+        lower_query = user_query.lower()
+        kl_time_str = get_kl_time_string()
+
+        if not user_query:
+            return {"response": "Please enter a question first."}
+
+        # -----------------------------------
+        # Live weather path
+        # -----------------------------------
+        if is_weather_question(user_query):
+            weather = fetch_live_weather("Kuala Lumpur")
+
+            # If Gemini is available, let it present the weather more naturally
+            if os.getenv("GEMINI_API_KEY"):
+                client = get_genai_client()
+
+                weather_prompt = f"""
+                    You are a helpful AI assistant.
+
+                    Current context:
+                    - Location: Kuala Lumpur, Malaysia
+                    - Kuala Lumpur time now: {kl_time_str}
+
+                    The user asked:
+                    "{user_query}"
+
+                    Live weather data:
+                    - Location: {weather['name']}, {weather['country']}
+                    - Local time: {weather['localtime']}
+                    - Condition: {weather['condition']}
+                    - Temperature: {weather['temp_c']}°C
+                    - Feels like: {weather['feelslike_c']}°C
+                    - Humidity: {weather['humidity']}%
+                    - Wind: {weather['wind_kph']} kph ({weather['wind_dir']})
+                    - Precipitation: {weather['precip_mm']} mm
+                    - Cloud cover: {weather['cloud']}%
+                    - Last updated: {weather['last_updated']}
+
+                    Instructions:
+                    - Answer naturally and clearly.
+                    - Use the live weather data above.
+                    - Keep it concise and helpful.
+                    - Mention that the weather shown is for Kuala Lumpur unless the user asked otherwise.
+                """
+
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash-lite", contents=weather_prompt
+                )
+
+                reply_text = getattr(response, "text", None)
+                if reply_text:
+                    return {"response": reply_text.strip()}
+
+            # Fallback: return weather directly without Gemini
+            return {
+                "response": (
+                    f"Current weather for {weather['name']}, {weather['country']}:\n\n"
+                    f"- Condition: {weather['condition']}\n"
+                    f"- Temperature: {weather['temp_c']}°C\n"
+                    f"- Feels like: {weather['feelslike_c']}°C\n"
+                    f"- Humidity: {weather['humidity']}%\n"
+                    f"- Wind: {weather['wind_kph']} kph ({weather['wind_dir']})\n"
+                    f"- Precipitation: {weather['precip_mm']} mm\n"
+                    f"- Cloud cover: {weather['cloud']}%\n"
+                    f"- Local time: {weather['localtime']}\n"
+                    f"- Last updated: {weather['last_updated']}"
+                )
+            }
+
+        # -----------------------------------
+        # Fallback mode when Gemini is not configured
+        # -----------------------------------
+        if not os.getenv("GEMINI_API_KEY"):
+            projects = db.get_all_projects()
+            total_projects = len(projects)
+            completed = sum(
+                1 for p in projects if str(p[6] or "").lower() == "completed"
+            )
+            active = total_projects - completed
+
+            if lower_query in ["hi", "hello", "hey", "helo", "heelo"]:
+                return {
+                    "response": (
+                        f"Hello! 👋\n\n"
+                        f"Current time in Kuala Lumpur: {kl_time_str}\n\n"
+                        f"I can help with project insights right now. "
+                        f"Enable GEMINI_API_KEY to unlock full general AI features."
+                    )
+                }
+
+            return {
+                "response": (
+                    f"Gemini AI is not enabled yet.\n\n"
+                    f"Quick local summary:\n"
+                    f"- Total Projects: {total_projects}\n"
+                    f"- Completed: {completed}\n"
+                    f"- Active: {active}"
+                )
+            }
+
+        # -----------------------------------
+        # Gemini mode for project/general chat
+        # -----------------------------------
         client = get_genai_client()
         projects = db.get_all_projects()
 
@@ -955,51 +1131,71 @@ async def ai_chat(query: str):
         )
 
         prompt = f"""
-            You are an AI assistant with two modes:
+            You are a smart AI assistant within a project tracking system.
 
-            -----------------------------------
-            MODE 1: Business/Data Analyst
-            -----------------------------------
-            If the question is related to projects, managers, or database insights:
+            ===================================
+            CONTEXT
+            ===================================
+            Location: Kuala Lumpur, Malaysia
+            Local Time: {kl_time_str}
 
-            Act as a professional business/data analyst.
+            ===================================
+            MODE 1: PROJECT ANALYST
+            ===================================
+            Use the available project data when the question relates to:
+            - projects
+            - managers
+            - performance
+            - trends
+            - workload
+            - profit or margin
+            - operations
 
-            Use the provided project data to analyse and answer the question.
+            Analysis Guidelines:
+            - Make reasonable assumptions based on available data
+            - Identify patterns (e.g. many active vs completed projects)
+            - Compare managers where possible
+            - Highlight potential concerns (e.g. backlog, low completion)
+            - Provide practical, actionable insights
 
-            Your analysis MUST consider:
-            . Overall project performance
-            . Manager productivity
-            3. Completion trends
-            4. Risks or bottlenecks
+            Important:
+            - Do NOT say "insufficient data" unless absolutely necessary
+            - Use what is available to generate meaningful insights
 
-            Guidelines:
+            Response Style:
             - Be concise and structured
-            - Use bullet points where appropriate
-            - Highlight key insights clearly
-            - Provide actionable recommendations if possible
+            - Use bullet points where helpful
+            - Keep it professional and clear
 
-            -----------------------------------
-            MODE 2: General Assistant
-            -----------------------------------
-            If the question is NOT related to the project data:
+            ===================================
+            MODE 2: GENERAL ASSISTANT
+            ===================================
+            If the question is NOT related to project data:
+            - Answer naturally like a normal AI assistant
+            - Do NOT force project context into the answer
+            - Only mention limitations if real-time or external data is required
 
-            - Answer like a normal ChatGPT assistant
-             You may answer general knowledge questions
+            ===================================
+            USER QUESTION
+            ===================================
+            {user_query}
 
-            -----------------------------------
-            User Question:
-            {query}
-
-            -----------------------------------
-            Project Data:
+            ===================================
+            PROJECT DATA
+            ===================================
             {project_text}
-            """
+        """
 
         response = client.models.generate_content(
             model="gemini-2.5-flash-lite", contents=prompt
         )
 
-        return {"response": response.text}
+        reply_text = getattr(response, "text", None)
+
+        if not reply_text:
+            return {"response": "I couldn’t generate a response. Please try again."}
+
+        return {"response": reply_text.strip()}
 
     except HTTPException:
         raise
