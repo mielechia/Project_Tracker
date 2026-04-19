@@ -8,7 +8,7 @@ from passlib.context import CryptContext
 from typing import List, Optional
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
-from ProTrack_v2.db_pt_v2 import DatabaseManager
+from db_pt_v2 import DatabaseManager
 from collections import defaultdict
 from google import genai
 import os
