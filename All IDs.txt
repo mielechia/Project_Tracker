@@ -1,5 +1,5 @@
 # Google AI API Key for Gemini
-GOOGLE_API_KEY=AIzaSyBmfwycl04LTlXwQIV7_aTZVA_Um4ELwWM
+GOOGLE_API_KEY=AIzaSyAZnPgktYtxMHTWBaag0dzVXPqNF9AJiSU
 GEMINI_MODEL=gemini-2.5-flash-lite
 
 # MongoDB Connection URI
@@ -13,10 +13,9 @@ Weather_API_KEY=93b8cc6fc522407dbbd55019261704
 
 
 #To export API Key in terminal
-export GEMINI_API_KEY="AIzaSyBmfwycl04LTlXwQIV7_aTZVA_Um4ELwWM"
+export GEMINI_API_KEY="AIzaSyAZnPgktYtxMHTWBaag0dzVXPqNF9AJiSU"
 export WEATHERAPI_KEY="93b8cc6fc522407dbbd55019261704"
 
 #To Check if API key is exported successfully
 echo $GEMINI_API_KEY
 echo $WEATHERAPI_KEY
-
