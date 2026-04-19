@@ -776,6 +776,11 @@ def create_project_ui():
                 value=None,
                 placeholder="Enter revenue",
             )
+            market = st.text_input(
+                "Market",
+                max_chars=100,
+                placeholder="Enter market (e.g. MY, SG, PH)",
+            )
 
         with col8:
             f_cost = st.number_input(
@@ -801,9 +806,9 @@ def create_project_ui():
             margin_band = st.selectbox(
                 "Margin Band", ["0%", "1-19%", "20-49%", "50-79%", "80-100%"]
             )
-        f_remarks = st.text_area(
-            "Fieldwork Remarks", max_chars=500, placeholder="Enter remarks or notes"
-        )
+            f_remarks = st.text_area(
+                "Fieldwork Remarks", max_chars=500, placeholder="Enter remarks or notes"
+            )
 
         st.markdown("---")
         submit_button = st.form_submit_button(label="Create Project", type="primary")
@@ -958,182 +963,161 @@ def search_projects():
     st.header("🔍 Project Directory")
     st.markdown("Browse all projects or refine the list using search criteria below.")
 
+    if "selected_project" not in st.session_state:
+        st.session_state["selected_project"] = None
+    if "project_search_results" not in st.session_state:
+        st.session_state["project_search_results"] = None
+    if "project_search_success" not in st.session_state:
+        st.session_state["project_search_success"] = False
+    if "project_search_label" not in st.session_state:
+        st.session_state["project_search_label"] = None
+    if "project_search_value" not in st.session_state:
+        st.session_state["project_search_value"] = None
+
+    search_config = {
+        "All Projects": {
+            "type": "special",
+            "runner": lambda _: get_all_projects(),
+            "value_label": "Showing all projects",
+        },
+        "Project Name Keyword": {
+            "type": "text",
+            "label": "Project Name Keyword",
+            "key": "keyword",
+            "placeholder": "Enter keyword to search in project names",
+            "runner": get_projects_by_name_keyword,
+        },
+        "Project SID": {
+            "type": "text",
+            "label": "Project SID",
+            "key": "sid",
+            "placeholder": "Enter project SID",
+            "runner": get_projects_by_sid,
+        },
+        "Project Segment": {
+            "type": "select",
+            "label": "Project Segment",
+            "key": "segment",
+            "options": [
+                "Full Service",
+                "Sample Only",
+                "Sample Only (External)",
+                "Coverage",
+                "Other",
+            ],
+            "runner": get_projects_by_segment,
+        },
+        "Project Type": {
+            "type": "select",
+            "label": "Project Type",
+            "key": "p_type",
+            "options": ["Tracker", "Ad Hoc", "Other"],
+            "runner": get_projects_by_type,
+        },
+        "Project TA ID": {
+            "type": "text",
+            "label": "Project TA ID",
+            "key": "ta_id",
+            "placeholder": "Enter project TA ID",
+            "runner": get_projects_by_ta_id,
+        },
+        "Project Job ID": {
+            "type": "text",
+            "label": "Project Job ID",
+            "key": "job_id",
+            "placeholder": "Enter project Job ID",
+            "runner": get_projects_by_job_id,
+        },
+        "Project Job OL ID": {
+            "type": "text",
+            "label": "Project Job OL ID",
+            "key": "job_ol_id",
+            "placeholder": "Enter project Job OL ID",
+            "runner": get_projects_by_job_ol_id,
+        },
+        "Project Job RA ID": {
+            "type": "text",
+            "label": "Project Job RA ID",
+            "key": "job_ra_id",
+            "placeholder": "Enter project Job RA ID",
+            "runner": get_projects_by_job_ra_id,
+        },
+        "Project Status": {
+            "type": "select",
+            "label": "Project Status",
+            "key": "status",
+            "options": ["Field", "Completed", "Other"],
+            "runner": get_projects_by_status,
+        },
+        "Project Manager": {
+            "type": "text",
+            "label": "Project Manager",
+            "key": "manager",
+            "placeholder": "Enter project manager name",
+            "runner": get_projects_by_manager,
+        },
+        "Project Business Unit": {
+            "type": "text",
+            "label": "Business Unit",
+            "key": "b_unit",
+            "placeholder": "Enter business unit",
+            "runner": get_projects_by_business_unit,
+        },
+        "Project Business Country": {
+            "type": "text",
+            "label": "Business Country",
+            "key": "b_country",
+            "placeholder": "Enter business country",
+            "runner": get_projects_by_business_country,
+        },
+        "Project Business Name": {
+            "type": "text",
+            "label": "Business Name",
+            "key": "b_name",
+            "placeholder": "Enter business name",
+            "runner": get_projects_by_business_name,
+        },
+        "Project Margin Band": {
+            "type": "select",
+            "label": "Margin Band",
+            "key": "f_margin_band",
+            "options": ["0%", "1-19%", "20-49%", "50-79%", "80-100%"],
+            "runner": get_projects_by_margin_band,
+        },
+        "Project Date Filter": {
+            "type": "date_filter",
+            "runner": get_projects_by_date,
+        },
+    }
+
     with st.container(border=True):
         st.markdown("### Filter Projects")
 
         search_criteria = st.selectbox(
             "Search Type",
-            [
-                "All Projects",
-                "Project Name Keyword",
-                "Project SID",
-                "Project Segment",
-                "Project Type",
-                "Project TA ID",
-                "Project Job ID",
-                "Project Job OL ID",
-                "Project Job RA ID",
-                "Project Status",
-                "Project Manager",
-                "Project Business Unit",
-                "Project Business Country",
-                "Project Business Name",
-                "Project Margin Band",
-                "Project Date Filter",
-            ],
+            list(search_config.keys()),
+            key="project_search_type",
         )
 
-        response_data = None
-        success = False
-        search_clicked = False
+        config = search_config[search_criteria]
+        input_value = None
 
-        # Default: show all projects
-        if search_criteria == "All Projects":
-            response_data, success = get_all_projects()
-
-        elif search_criteria == "Project Name Keyword":
-            keyword = st.text_input(
-                "Project Name Keyword",
+        if config["type"] == "text":
+            input_value = st.text_input(
+                config["label"],
                 max_chars=100,
-                placeholder="Enter keyword to search in project names",
+                placeholder=config["placeholder"],
+                key=f"search_input_{config['key']}",
             )
-            search_clicked = st.button("Apply Filter", key="search_name_keyword")
-            if search_clicked:
-                response_data, success = get_projects_by_name_keyword(keyword)
 
-        elif search_criteria == "Project SID":
-            sid = st.text_input(
-                "Project SID",
-                max_chars=20,
-                placeholder="Enter project SID",
+        elif config["type"] == "select":
+            input_value = st.selectbox(
+                config["label"],
+                config["options"],
+                key=f"search_input_{config['key']}",
             )
-            search_clicked = st.button("Apply Filter", key="search_sid")
-            if search_clicked:
-                response_data, success = get_projects_by_sid(sid)
 
-        elif search_criteria == "Project Segment":
-            segment = st.selectbox(
-                "Project Segment",
-                [
-                    "Full Service",
-                    "Sample Only",
-                    "Sample Only (External)",
-                    "Coverage",
-                    "Other",
-                ],
-            )
-            search_clicked = st.button("Apply Filter", key="search_segment")
-            if search_clicked:
-                response_data, success = get_projects_by_segment(segment)
-
-        elif search_criteria == "Project Type":
-            p_type = st.selectbox(
-                "Project Type",
-                ["Tracker", "Ad Hoc", "Other"],
-            )
-            search_clicked = st.button("Apply Filter", key="search_type")
-            if search_clicked:
-                response_data, success = get_projects_by_type(p_type)
-
-        elif search_criteria == "Project TA ID":
-            ta_id = st.text_input(
-                "Project TA ID",
-                max_chars=10,
-                placeholder="Enter project TA ID",
-            )
-            search_clicked = st.button("Apply Filter", key="search_ta_id")
-            if search_clicked:
-                response_data, success = get_projects_by_ta_id(ta_id)
-
-        elif search_criteria == "Project Job ID":
-            job_id = st.text_input(
-                "Project Job ID",
-                max_chars=20,
-                placeholder="Enter project Job ID",
-            )
-            search_clicked = st.button("Apply Filter", key="search_job_id")
-            if search_clicked:
-                response_data, success = get_projects_by_job_id(job_id)
-
-        elif search_criteria == "Project Job OL ID":
-            job_ol_id = st.text_input(
-                "Project Job OL ID",
-                max_chars=20,
-                placeholder="Enter project Job OL ID",
-            )
-            search_clicked = st.button("Apply Filter", key="search_job_ol_id")
-            if search_clicked:
-                response_data, success = get_projects_by_job_ol_id(job_ol_id)
-
-        elif search_criteria == "Project Job RA ID":
-            job_ra_id = st.text_input(
-                "Project Job RA ID",
-                max_chars=20,
-                placeholder="Enter project Job RA ID",
-            )
-            search_clicked = st.button("Apply Filter", key="search_job_ra_id")
-            if search_clicked:
-                response_data, success = get_projects_by_job_ra_id(job_ra_id)
-
-        elif search_criteria == "Project Status":
-            status = st.selectbox(
-                "Project Status",
-                ["Field", "Completed", "Other"],
-            )
-            search_clicked = st.button("Apply Filter", key="search_status")
-            if search_clicked:
-                response_data, success = get_projects_by_status(status)
-
-        elif search_criteria == "Project Manager":
-            manager = st.text_input(
-                "Project Manager",
-                max_chars=100,
-                placeholder="Enter project manager name",
-            )
-            search_clicked = st.button("Apply Filter", key="search_manager")
-            if search_clicked:
-                response_data, success = get_projects_by_manager(manager)
-
-        elif search_criteria == "Project Business Unit":
-            b_unit = st.text_input(
-                "Business Unit",
-                max_chars=100,
-                placeholder="Enter business unit",
-            )
-            search_clicked = st.button("Apply Filter", key="search_business_unit")
-            if search_clicked:
-                response_data, success = get_projects_by_business_unit(b_unit)
-
-        elif search_criteria == "Project Business Country":
-            b_country = st.text_input(
-                "Business Country",
-                max_chars=100,
-                placeholder="Enter business country",
-            )
-            search_clicked = st.button("Apply Filter", key="search_business_country")
-            if search_clicked:
-                response_data, success = get_projects_by_business_country(b_country)
-
-        elif search_criteria == "Project Business Name":
-            b_name = st.text_input(
-                "Business Name",
-                max_chars=100,
-                placeholder="Enter business name",
-            )
-            search_clicked = st.button("Apply Filter", key="search_business_name")
-            if search_clicked:
-                response_data, success = get_projects_by_business_name(b_name)
-
-        elif search_criteria == "Project Margin Band":
-            f_margin_band = st.selectbox(
-                "Margin Band",
-                ["0%", "1-19%", "20-49%", "50-79%", "80-100%"],
-            )
-            search_clicked = st.button("Apply Filter", key="search_margin_band")
-            if search_clicked:
-                response_data, success = get_projects_by_margin_band(f_margin_band)
-
-        elif search_criteria == "Project Date Filter":
+        elif config["type"] == "date_filter":
             col1, col2 = st.columns(2)
             with col1:
                 month = st.selectbox(
@@ -1153,65 +1137,164 @@ def search_projects():
                         "November",
                         "December",
                     ],
+                    key="search_input_month",
                 )
             with col2:
                 year = st.text_input(
                     "Year",
                     max_chars=4,
                     placeholder="E.g. 2026",
+                    key="search_input_year",
                 )
 
-            search_clicked = st.button("Apply Filter", key="search_date")
+        col_btn1, col_btn2 = st.columns([1, 5])
 
-            if search_clicked:
-                month_map = {
-                    "": None,
-                    "January": 1,
-                    "February": 2,
-                    "March": 3,
-                    "April": 4,
-                    "May": 5,
-                    "June": 6,
-                    "July": 7,
-                    "August": 8,
-                    "September": 9,
-                    "October": 10,
-                    "November": 11,
-                    "December": 12,
-                }
-                month_number = month_map.get(month)
-                year_number = int(year) if year else None
-                response_data, success = get_projects_by_date(
-                    month=month_number,
-                    year=year_number,
-                )
+        with col_btn1:
+            if st.button("Apply Filter", key="project_search_apply"):
+                if config["type"] == "special":
+                    response_data, success = config["runner"](None)
+                    search_value = config["value_label"]
+
+                elif config["type"] == "date_filter":
+                    month_map = {
+                        "": None,
+                        "January": 1,
+                        "February": 2,
+                        "March": 3,
+                        "April": 4,
+                        "May": 5,
+                        "June": 6,
+                        "July": 7,
+                        "August": 8,
+                        "September": 9,
+                        "October": 10,
+                        "November": 11,
+                        "December": 12,
+                    }
+                    month_number = month_map.get(month)
+                    year_number = int(year) if year else None
+                    response_data, success = config["runner"](
+                        month=month_number,
+                        year=year_number,
+                    )
+                    search_value = f"Month: {month or '-'} | Year: {year or '-'}"
+
+                else:
+                    response_data, success = config["runner"](input_value)
+                    search_value = input_value
+
+                st.session_state["project_search_results"] = response_data
+                st.session_state["project_search_success"] = success
+                st.session_state["project_search_label"] = search_criteria
+                st.session_state["project_search_value"] = search_value
+                st.session_state["selected_project"] = None
+                st.session_state["search_project_page"] = 1
+                st.rerun()
+
+        with col_btn2:
+            if st.button("Clear Search", key="project_search_clear"):
+                st.session_state["project_search_results"] = None
+                st.session_state["project_search_success"] = False
+                st.session_state["project_search_label"] = None
+                st.session_state["project_search_value"] = None
+                st.session_state["selected_project"] = None
+                st.rerun()
 
     st.markdown("")
 
-    # Show all projects by default
-    if search_criteria == "All Projects":
+    # Default all-project view before any specific search
+    if (
+        st.session_state["project_search_results"] is None
+        and search_criteria == "All Projects"
+    ):
+        response_data, success = get_all_projects()
         if success:
-            display_search_results(response_data, mode="all")
+            display_search_results(
+                response_data=response_data,
+                mode="all",
+                active_search_label="All Projects",
+                active_search_value="Showing all projects",
+            )
         else:
             st.error("Failed to retrieve projects. Please try again later.")
+        return
 
-    # Show filtered results only after button click
-    else:
-        if search_clicked:
-            if success:
-                display_search_results(response_data, mode="search")
-            else:
-                st.error(
-                    "No projects found matching the selected criteria. Please try a different value."
-                )
-        else:
-            st.info(
-                "Select a search type, enter a value if needed, and click 'Apply Filter'."
+    # Persisted search result
+    if st.session_state["project_search_results"] is not None:
+        if st.session_state["project_search_success"]:
+            display_search_results(
+                response_data=st.session_state["project_search_results"],
+                mode="search",
+                active_search_label=st.session_state["project_search_label"],
+                active_search_value=st.session_state["project_search_value"],
             )
+        else:
+            st.error(
+                f"No projects found for {st.session_state['project_search_label']}: "
+                f"{st.session_state['project_search_value']}"
+            )
+    else:
+        st.info(
+            "Select a search type, enter a value if needed, and click 'Apply Filter'."
+        )
+
+
+# Display project with full details
+def render_project_full_details(project):
+    st.markdown("---")
+
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.markdown("#### 📋 Project Information")
+        st.markdown(f"**DB ID:** {project.get('db_id', '-')}")
+        st.markdown(f"**Name:** {project.get('p_name', '-')}")
+        st.markdown(f"**Manager:** {project.get('p_manager', '-')}")
+        st.markdown(f"**Team:** {project.get('p_team', '-')}")
+        st.markdown(f"**Segment:** {project.get('p_segment', '-')}")
+        st.markdown(f"**Type:** {project.get('p_type', '-')}")
+        st.markdown(f"**Status:** {project.get('p_status', '-')}")
+        st.markdown(f"**IR:** {project.get('ir', '-')}")
+        st.markdown(f"**LOI:** {project.get('loi', '-')}")
+
+    with col2:
+        st.markdown("#### 🆔 Operational Details")
+        st.markdown(f"**Start:** {project.get('p_s_date', '-')}")
+        st.markdown(f"**End:** {project.get('p_e_date', '-')}")
+        st.markdown(f"**Job ID:** {project.get('job_id', '-')}")
+        st.markdown(f"**OL ID:** {project.get('job_ol_id', '-')}")
+        st.markdown(f"**RA ID:** {project.get('job_ra_id', '-')}")
+        st.markdown(f"**SID:** {project.get('s_id', '-')}")
+        st.markdown(f"**TA ID:** {project.get('ta_id', '-')}")
+        st.markdown(f"**Folder:** {project.get('pf_link', '-')}")
+
+    with col3:
+        st.markdown("#### 🏢 Business Details")
+        st.markdown(f"**Unit:** {project.get('b_unit', '-')}")
+        st.markdown(f"**Country:** {project.get('b_country', '-')}")
+        st.markdown(f"**Name:** {project.get('b_name', '-')}")
+        st.markdown(f"**Name ID:** {project.get('b_name_id', '-')}")
+        st.markdown(f"**Market:** {project.get('market', '-')}")
+
+    with col4:
+        st.markdown("#### 💰 Financial Details")
+        st.markdown(f"**Deliverables:** {project.get('f_deliverables', '-')}")
+        st.markdown(f"**Currency:** {project.get('f_currency', '-')}")
+        st.markdown(f"**Revenue:** {project.get('f_revenue', '-')}")
+        st.markdown(f"**Cost:** {project.get('f_cost', '-')}")
+        st.markdown(f"**Profit:** {project.get('f_nprofit', '-')}")
+        st.markdown(f"**Margin:** {project.get('f_margin', '-')}")
+        st.markdown(f"**Remarks:** {project.get('f_remarks', '-')}")
+
+    st.markdown("---")
 
 
 # Display Search Results
-def display_search_results(response_data, mode="search"):
+def display_search_results(
+    response_data,
+    mode="search",
+    active_search_label=None,
+    active_search_value=None,
+):
     if not response_data:
         st.info("No results found matching the search criteria.")
         return
@@ -1222,9 +1305,6 @@ def display_search_results(response_data, mode="search"):
         st.info("No projects found matching the search criteria.")
         return
 
-    # -----------------------------
-    # Build compact table data
-    # -----------------------------
     table_rows = []
     for project in projects:
         table_rows.append(
@@ -1232,150 +1312,199 @@ def display_search_results(response_data, mode="search"):
                 "DB ID": project.get("db_id"),
                 "Project Name": project.get("p_name", "Unnamed Project"),
                 "SID": project.get("s_id", "Unknown"),
+                "Manager": project.get("p_manager", "Unknown"),
+                "Status": project.get("p_status", "Unknown"),
             }
         )
 
     df = pd.DataFrame(table_rows)
 
-    # -----------------------------
-    # Header
-    # -----------------------------
     title = "All Projects" if mode == "all" else "Search Results"
     st.markdown(f"### {title} ({len(df)} projects)")
 
-    # -----------------------------
-    # Toolbar: keyword filter + sort + page size
-    # -----------------------------
-    col1, col2, col3 = st.columns([2, 1, 1])
+    if active_search_label and active_search_value:
+        st.caption(f"Active Criteria: {active_search_label} → {active_search_value}")
 
-    with col1:
-        keyword = st.text_input(
-            "Filter by keyword",
-            placeholder="Search by project name, DB ID, or SID",
-            key=f"{mode}_project_keyword",
-        ).strip()
+    result_col, detail_col = st.columns([2, 3], gap="large")
 
-    with col2:
-        sort_by = st.selectbox(
-            "Sort by",
-            ["DB ID", "Project Name", "SID"],
-            key=f"{mode}_project_sort_by",
+    with result_col:
+        filter_col1, filter_col2, filter_col3 = st.columns([2, 1, 1])
+
+        with filter_col1:
+            keyword = st.text_input(
+                "Filter current results",
+                placeholder="Search by project name, DB ID, SID, manager, or status",
+                key=f"{mode}_project_keyword",
+            ).strip()
+
+        with filter_col2:
+            sort_by = st.selectbox(
+                "Sort by",
+                ["DB ID", "Project Name", "SID", "Manager", "Status"],
+                key=f"{mode}_project_sort_by",
+            )
+
+        with filter_col3:
+            page_size = st.selectbox(
+                "Projects per page",
+                [10, 20, 30, 50],
+                index=1,
+                key=f"{mode}_project_page_size",
+            )
+
+        if keyword:
+            keyword_lower = keyword.lower()
+            df = df[
+                df["Project Name"]
+                .astype(str)
+                .str.lower()
+                .str.contains(keyword_lower, na=False)
+                | df["SID"]
+                .astype(str)
+                .str.lower()
+                .str.contains(keyword_lower, na=False)
+                | df["DB ID"]
+                .astype(str)
+                .str.lower()
+                .str.contains(keyword_lower, na=False)
+                | df["Manager"]
+                .astype(str)
+                .str.lower()
+                .str.contains(keyword_lower, na=False)
+                | df["Status"]
+                .astype(str)
+                .str.lower()
+                .str.contains(keyword_lower, na=False)
+            ]
+
+        if df.empty:
+            st.info("No projects found for the current filter.")
+            return
+
+        sort_col1, sort_col2 = st.columns([1, 3])
+
+        with sort_col1:
+            sort_order = st.radio(
+                "Order",
+                ["Ascending", "Descending"],
+                horizontal=True,
+                key=f"{mode}_project_sort_order",
+            )
+
+        ascending = sort_order == "Ascending"
+        df = df.sort_values(by=sort_by, ascending=ascending).reset_index(drop=True)
+
+        total_rows = len(df)
+        total_pages = max(1, (total_rows + page_size - 1) // page_size)
+
+        page_key = f"{mode}_project_page"
+        if page_key not in st.session_state:
+            st.session_state[page_key] = 1
+
+        if st.session_state[page_key] > total_pages:
+            st.session_state[page_key] = total_pages
+
+        nav1, nav2, nav3, nav4 = st.columns([1, 1, 1, 2])
+
+        with nav1:
+            if st.button(
+                "◀ Prev",
+                key=f"{mode}_prev_page",
+                disabled=st.session_state[page_key] <= 1,
+            ):
+                st.session_state[page_key] -= 1
+                st.rerun()
+
+        with nav2:
+            if st.button(
+                "Next ▶",
+                key=f"{mode}_next_page",
+                disabled=st.session_state[page_key] >= total_pages,
+            ):
+                st.session_state[page_key] += 1
+                st.rerun()
+
+        with nav3:
+            page_number = st.number_input(
+                "Page",
+                min_value=1,
+                max_value=total_pages,
+                value=st.session_state[page_key],
+                step=1,
+                key=f"{mode}_page_number_input",
+            )
+            if page_number != st.session_state[page_key]:
+                st.session_state[page_key] = page_number
+                st.rerun()
+
+        with nav4:
+            start_item = (st.session_state[page_key] - 1) * page_size + 1
+            end_item = min(st.session_state[page_key] * page_size, total_rows)
+            st.caption(f"Showing {start_item}–{end_item} of {total_rows} projects")
+
+        start_idx = (st.session_state[page_key] - 1) * page_size
+        end_idx = start_idx + page_size
+        page_df = df.iloc[start_idx:end_idx].copy()
+
+        st.dataframe(
+            page_df,
+            use_container_width=True,
+            hide_index=True,
         )
 
-    with col3:
-        page_size = st.selectbox(
-            "Projects per page",
-            [10, 20, 30, 50],
-            index=1,
-            key=f"{mode}_project_page_size",
-        )
+        st.markdown("### View Full Details")
 
-    # -----------------------------
-    # Apply filter
-    # -----------------------------
-    if keyword:
-        keyword_lower = keyword.lower()
-        df = df[
-            df["Project Name"]
-            .astype(str)
-            .str.lower()
-            .str.contains(keyword_lower, na=False)
-            | df["SID"].astype(str).str.lower().str.contains(keyword_lower, na=False)
-            | df["DB ID"].astype(str).str.lower().str.contains(keyword_lower, na=False)
-        ]
+        visible_db_ids = page_df["DB ID"].tolist()
 
-    if df.empty:
-        st.info("No projects found for the current filter.")
-        return
+        visible_projects = []
+        for db_id in visible_db_ids:
+            matched_project = next(
+                (p for p in projects if str(p.get("db_id")) == str(db_id)),
+                None,
+            )
+            if matched_project:
+                visible_projects.append(matched_project)
 
-    # -----------------------------
-    # Sort controls
-    # -----------------------------
-    col4, col5 = st.columns([1, 3])
+        for project in visible_projects:
+            col_a, col_b = st.columns([4, 1])
 
-    with col4:
-        sort_order = st.radio(
-            "Order",
-            ["Ascending", "Descending"],
-            horizontal=True,
-            key=f"{mode}_project_sort_order",
-        )
+            with col_a:
+                st.markdown(
+                    f"**{project.get('p_name', 'Unnamed Project')}**  \n"
+                    f"DB ID: {project.get('db_id')} | "
+                    f"SID: {project.get('s_id', 'Unknown')} | "
+                    f"Manager: {project.get('p_manager', 'Unknown')} | "
+                    f"Status: {project.get('p_status', 'Unknown')}"
+                )
 
-    ascending = sort_order == "Ascending"
-    df = df.sort_values(by=sort_by, ascending=ascending).reset_index(drop=True)
+            with col_b:
+                if st.button("View", key=f"{mode}_view_{project.get('db_id')}"):
+                    st.session_state["selected_project"] = project
+                    st.rerun()
 
-    # -----------------------------
-    # Pagination
-    # -----------------------------
-    total_rows = len(df)
-    total_pages = max(1, (total_rows + page_size - 1) // page_size)
+    with detail_col:
+        st.markdown("### 📋 Project Details")
 
-    page_key = f"{mode}_project_page"
-    if page_key not in st.session_state:
-        st.session_state[page_key] = 1
+        selected_project = st.session_state.get("selected_project")
 
-    if st.session_state[page_key] > total_pages:
-        st.session_state[page_key] = total_pages
+        if selected_project:
+            close_col1, close_col2 = st.columns([1, 5])
+            with close_col1:
+                if st.button("Close", key="close_selected_project_panel"):
+                    st.session_state["selected_project"] = None
+                    st.rerun()
 
-    nav1, nav2, nav3, nav4 = st.columns([1, 1, 1, 2])
+            render_project_full_details(selected_project)
+        else:
+            st.info("Click **View** on a project to see full details here.")
 
-    with nav1:
-        if st.button(
-            "◀ Prev", key=f"{mode}_prev_page", disabled=st.session_state[page_key] <= 1
-        ):
-            st.session_state[page_key] -= 1
-            st.rerun()
-
-    with nav2:
-        if st.button(
-            "Next ▶",
-            key=f"{mode}_next_page",
-            disabled=st.session_state[page_key] >= total_pages,
-        ):
-            st.session_state[page_key] += 1
-            st.rerun()
-
-    with nav3:
-        page_number = st.number_input(
-            "Page",
-            min_value=1,
-            max_value=total_pages,
-            value=st.session_state[page_key],
-            step=1,
-            key=f"{mode}_page_number_input",
-        )
-        if page_number != st.session_state[page_key]:
-            st.session_state[page_key] = page_number
-            st.rerun()
-
-    with nav4:
-        start_item = (st.session_state[page_key] - 1) * page_size + 1
-        end_item = min(st.session_state[page_key] * page_size, total_rows)
-        st.caption(f"Showing {start_item}–{end_item} of {total_rows} projects")
-
-    start_idx = (st.session_state[page_key] - 1) * page_size
-    end_idx = start_idx + page_size
-    page_df = df.iloc[start_idx:end_idx].copy()
-
-    # -----------------------------
-    # Display compact table
-    # -----------------------------
-    st.dataframe(
-        page_df,
-        use_container_width=True,
-        hide_index=True,
-    )
-
-    # -----------------------------
-    # Optional quick help
-    # -----------------------------
     with st.expander("Tips", expanded=False):
         st.markdown(
             """
-            - Use the keyword filter to search by **Project Name**, **DB ID**, or **SID**  
-            - Sort by **DB ID** to quickly find newest or oldest records  
-            - Adjust **Projects per page** (20–30 recommended) for easier browsing  
-            - Combine filters and sorting to narrow down results efficiently  
+            - Use **Apply Filter** to run a criteria search
+            - The active criteria will stay visible above the results
+            - Use **Filter current results** to narrow the returned list further
+            - Click **View** to inspect the selected project on the right
             """
         )
 
@@ -1452,7 +1581,6 @@ def update_project():
             st.markdown(f"**Business Country:** {project.get('b_country')}")
             st.markdown(f"**Business Name:** {project.get('b_name')}")
             st.markdown(f"**Business Name ID:** {project.get('b_name_id')}")
-            st.markdown(f"**Market:** {project.get('market')}")
 
         with col4:
             st.markdown("### 💰 Financial Details")
@@ -1462,6 +1590,7 @@ def update_project():
             st.markdown(f"**Cost:** {project.get('f_cost')}")
             st.markdown(f"**Net Profit:** {project.get('f_nprofit')}")
             st.markdown(f"**Margin:** {project.get('f_margin')}")
+            st.markdown(f"**Market:** {project.get('market')}")
             st.markdown(f"**Remarks:** {project.get('f_remarks')}")
 
     st.markdown("---")
@@ -1670,18 +1799,12 @@ def update_project():
                 step=1,
                 key=f"update_b_name_id_{db_id}",
             )
-            market = st.text_input(
-                "Market",
-                value=str(project.get("market") or ""),
-                key=f"update_market_{db_id}",
-            )
 
             updates = {
                 "b_unit": b_unit.strip(),
                 "b_country": b_country.strip(),
                 "b_name": b_name.strip(),
                 "b_name_id": int(b_name_id),
-                "market": market.strip(),
             }
 
         elif section_to_update == "Financial Details":
@@ -1731,6 +1854,11 @@ def update_project():
                 step=0.1,
                 key=f"update_f_margin_{db_id}",
             )
+            market = st.text_input(
+                "Market",
+                value=str(project.get("market") or ""),
+                key=f"update_market_{db_id}",
+            )
             f_remarks = st.text_area(
                 "Fieldwork Remarks",
                 value=str(project.get("f_remarks") or ""),
@@ -1744,6 +1872,7 @@ def update_project():
                 "f_cost": float(f_cost),
                 "f_nprofit": float(f_nprofit),
                 "f_margin": float(f_margin),
+                "market": market.strip(),
                 "f_remarks": f_remarks.strip(),
             }
 
@@ -1978,352 +2107,6 @@ def delete_project():
 
 
 # AI Insights
-# def ai_insights():
-#     st.header("🤖 AI Insights")
-#     st.markdown(
-#         "Explore project performance, manager-level trends, and AI-generated summaries."
-#     )
-
-#     # -----------------------------
-#     # Session State Initialisation
-#     # -----------------------------
-#     if "chat_history" not in st.session_state:
-#         st.session_state.chat_history = []
-
-#     if "ai_prefill" not in st.session_state:
-#         st.session_state["ai_prefill"] = ""
-
-#     projects_data, success = get_all_projects()
-
-#     if not success:
-#         st.error("Failed to load data")
-#         return
-
-#     projects = projects_data.get("projects", [])
-
-#     # -----------------------------
-#     # AI Snapshot
-#     # -----------------------------
-#     st.subheader("🧠 AI Snapshot")
-
-#     total_projects = len(projects)
-#     completed_projects = sum(
-#         1 for p in projects if str(p.get("p_status", "")).lower() == "completed"
-#     )
-#     active_projects = sum(
-#         1 for p in projects if str(p.get("p_status", "")).lower() == "field"
-#     )
-#     completion_rate = (
-#         round((completed_projects / total_projects) * 100, 2) if total_projects else 0
-#     )
-
-#     margins = [
-#         float(p.get("f_margin")) for p in projects if p.get("f_margin") is not None
-#     ]
-#     avg_margin = round(sum(margins) / len(margins), 2) if margins else 0
-
-#     manager_counts_snapshot = Counter(p.get("p_manager", "Unknown") for p in projects)
-#     top_manager = (
-#         max(manager_counts_snapshot, key=manager_counts_snapshot.get)
-#         if manager_counts_snapshot
-#         else "N/A"
-#     )
-
-#     snap1, snap2, snap3, snap4 = st.columns(4)
-#     snap1.metric("📦 Total Projects", total_projects)
-#     snap2.metric("✅ Completed", completed_projects)
-#     snap3.metric("🚧 Active", active_projects)
-#     snap4.metric("📊 Completion Rate", f"{completion_rate}%")
-
-#     insight_col1, insight_col2 = st.columns(2)
-
-#     with insight_col1:
-#         if active_projects > completed_projects:
-#             st.warning(
-#                 "⚠️ Active projects currently exceed completed projects, which may indicate delivery backlog."
-#             )
-#         else:
-#             st.success("✅ Completed projects are keeping pace with active workload.")
-
-#     with insight_col2:
-#         if avg_margin < 20:
-#             st.warning(
-#                 f"⚠️ Average margin is {avg_margin}%, which may require profitability review."
-#             )
-#         else:
-#             st.success(f"💹 Average margin is {avg_margin}%, which looks healthy.")
-
-#     st.caption(f"Top workload currently sits with: {top_manager}")
-
-#     st.markdown("---")
-
-#     # -----------------------------
-#     # Smart Actions
-#     # -----------------------------
-#     st.subheader("💡 Smart Actions")
-#     st.caption("Quick prompts to explore common project insights.")
-
-#     suggestions = [
-#         "Summarise monthly project performance",
-#         "Analyse performance trends by manager",
-#         "Identify underperforming managers",
-#         "Show projects with low profit margins",
-#         "Highlight potential project risks",
-#         "Projects initiated this week",
-#     ]
-
-#     # Left-aligned layout (2 columns + empty space)
-#     col_left, col_right, _ = st.columns([1, 1, 2])
-
-#     for i, suggestion in enumerate(suggestions):
-#         target_col = col_left if i % 2 == 0 else col_right
-
-#         with target_col:
-#             if st.button(suggestion, key=f"suggestion_{i}"):
-
-#                 # Save user message
-#                 st.session_state.chat_history.append(
-#                     {"role": "user", "message": suggestion}
-#                 )
-
-#                 # Call AI backend
-#                 try:
-#                     response = requests.post(
-#                         f"{API_BASE_URL}/ai/chat/",
-#                         params={"query": suggestion},
-#                         timeout=30,
-#                     )
-
-#                     if response.status_code == 200:
-#                         ai_reply = response.json().get(
-#                             "response", "No response from AI"
-#                         )
-#                     else:
-#                         try:
-#                             error_detail = response.json().get("detail", response.text)
-#                         except Exception:
-#                             error_detail = response.text
-
-#                         ai_reply = f"⚠️ AI request failed: {error_detail}"
-
-#                 except requests.exceptions.RequestException as e:
-#                     ai_reply = f"⚠️ AI request failed: {str(e)}"
-
-#                 # Save AI reply
-#                 st.session_state.chat_history.append(
-#                     {"role": "ai", "message": ai_reply}
-#                 )
-
-#                 st.rerun()
-
-#     st.markdown("---")
-
-#     # -----------------------------
-#     # Chat UI
-#     # -----------------------------
-#     st.subheader("💬 AI Chat Assistant")
-
-#     chat_container = st.container()
-
-#     with chat_container:
-#         for chat in st.session_state.chat_history:
-#             if chat["role"] == "user":
-#                 st.markdown(f"🧑 **You:** {chat['message']}")
-#             else:
-#                 st.markdown(f"🤖 **AI:** {chat['message']}")
-
-#     user_input = st.text_input(
-#         "Ask about projects, managers, performance insights, or general queries.",
-#         value=st.session_state.get("ai_prefill", ""),
-#         placeholder="E.g. Summarise current project performance",
-#         key="ai_chat_input",
-#     )
-
-#     st.session_state["ai_prefill"] = ""
-
-#     col1, col2 = st.columns([1, 1])
-
-#     with col1:
-#         if st.button("Send 💬"):
-#             if user_input:
-#                 # Save user message
-#                 st.session_state.chat_history.append(
-#                     {"role": "user", "message": user_input}
-#                 )
-
-#                 # Call AI backend
-#                 try:
-#                     response = requests.post(
-#                         f"{API_BASE_URL}/ai/chat/",
-#                         params={"query": user_input},
-#                         timeout=30,
-#                     )
-
-#                     if response.status_code == 200:
-#                         ai_reply = response.json().get(
-#                             "response", "No response from AI"
-#                         )
-#                     else:
-#                         try:
-#                             error_detail = response.json().get("detail", response.text)
-#                         except Exception:
-#                             error_detail = response.text
-
-#                         if "GEMINI_API_KEY is not set" in str(error_detail):
-#                             ai_reply = (
-#                                 "⚠️ AI assistant is not available yet because GEMINI_API_KEY is not set. "
-#                                 "Please add your Gemini API key to enable general AI questions like weather."
-#                             )
-#                         elif "WEATHERAPI_KEY is not set" in str(error_detail):
-#                             ai_reply = (
-#                                 "⚠️ Live weather is not available yet because WEATHERAPI_KEY is not set. "
-#                                 "Please add your weather API key to enable weather queries."
-#                             )
-#                         else:
-#                             ai_reply = f"⚠️ AI request failed: {error_detail}"
-
-#                 except requests.exceptions.RequestException as e:
-#                     ai_reply = f"⚠️ AI request failed: {str(e)}"
-
-#                 # Save AI reply
-#                 st.session_state.chat_history.append(
-#                     {"role": "ai", "message": ai_reply}
-#                 )
-
-#                 st.rerun()
-
-#     with col2:
-#         if st.button("Clear Chat 🗑️"):
-#             st.session_state.chat_history = []
-#             st.rerun()
-
-#     st.markdown("---")
-
-#     # -----------------------------
-#     # Manager Performance Report
-#     # -----------------------------
-#     st.subheader("📊 Manager Performance Report")
-
-#     manager_list = sorted(list(set(p.get("p_manager", "Unknown") for p in projects)))
-#     manager_counts = Counter(p.get("p_manager") for p in projects)
-#     manager_options = ["All"] + [f"{m} ({manager_counts[m]})" for m in manager_list]
-
-#     col1, col2 = st.columns(2)
-
-#     with col1:
-#         period = st.selectbox("Select Period", ["daily", "weekly", "monthly", "yearly"])
-
-#     with col2:
-#         selected_manager_display = st.selectbox("Select Manager", manager_options)
-#         selected_manager = selected_manager_display.split(" (")[0]
-
-#     if st.button("Generate Report 📄"):
-#         try:
-#             params = {"period": period}
-
-#             if selected_manager != "All":
-#                 params["manager"] = selected_manager
-
-#             res = requests.get(
-#                 f"{API_BASE_URL}/reports/projects", params=params, timeout=30
-#             )
-
-#             if res.status_code == 200:
-#                 data = res.json()
-
-#                 st.success(f"📅 {period.capitalize()} Report")
-
-#                 col1, col2, col3 = st.columns(3)
-#                 col1.metric("📦 Total Projects", data.get("count", 0))
-#                 col2.metric("💰 Total Net Profit", f"{data.get('total_profit', 0)}")
-#                 col3.metric("📊 Avg Margin (%)", f"{data.get('avg_margin', 0)}%")
-
-#                 st.markdown(f"**Manager Filter:** {selected_manager}")
-#                 st.caption(f"Period: {period.capitalize()}")
-
-#                 if data.get("count", 0) == 0:
-#                     st.info("No projects found for this selection.")
-#                 else:
-#                     if data.get("avg_margin", 0) < 20:
-#                         st.warning(
-#                             "⚠️ Low margin detected — potential profitability issue"
-#                         )
-
-#                     st.markdown("### Matching Projects")
-#                     for project in data.get("projects", []):
-#                         with st.container(border=True):
-#                             st.markdown(
-#                                 f"**{project.get('p_name', 'Unnamed Project')}**"
-#                             )
-#                             st.caption(
-#                                 f"DB ID: {project.get('db_id')} | "
-#                                 f"Manager: {project.get('p_manager')} | "
-#                                 f"Status: {project.get('p_status')}"
-#                             )
-#                             st.markdown(
-#                                 f"Start Date: {project.get('p_s_date')}  \n"
-#                                 f"Created At: {project.get('created_at')}"
-#                             )
-
-#             else:
-#                 try:
-#                     error_detail = res.json().get("detail", res.text)
-#                 except Exception:
-#                     error_detail = res.text
-
-#                 st.error(f"Failed to generate report: {error_detail}")
-
-#         except requests.exceptions.RequestException as e:
-#             st.error(f"Failed to generate report: {str(e)}")
-
-#     st.markdown("---")
-
-#     # -----------------------------
-#     # AI Manager Summary
-#     # -----------------------------
-#     st.subheader("🧠 AI Manager Summary")
-
-#     col1, col2 = st.columns(2)
-
-#     with col1:
-#         ai_summary_period = st.selectbox(
-#             "Summary Period",
-#             ["daily", "weekly", "monthly", "yearly"],
-#             index=2,
-#             key="ai_summary_period",
-#         )
-
-#     with col2:
-#         ai_summary_manager_display = st.selectbox(
-#             "Summary Manager", manager_options, key="ai_summary_manager"
-#         )
-#         ai_summary_manager = ai_summary_manager_display.split(" (")[0]
-
-#     if st.button("Generate AI Summary", key="generate_ai_summary"):
-#         try:
-#             params = {"period": ai_summary_period}
-
-#             if ai_summary_manager != "All":
-#                 params["manager"] = ai_summary_manager
-
-#             res = requests.get(f"{API_BASE_URL}/ai/report", params=params, timeout=30)
-
-#             if res.status_code == 200:
-#                 data = res.json()
-#                 st.success("AI summary generated successfully")
-#                 st.text(data.get("report", "No summary available"))
-#             else:
-#                 try:
-#                     error_detail = res.json().get("detail", res.text)
-#                 except Exception:
-#                     error_detail = res.text
-
-#                 st.error(f"Failed to generate AI summary: {error_detail}")
-
-#         except requests.exceptions.RequestException as e:
-#             st.error(f"Failed to generate AI summary: {str(e)}")
-
-
 def ai_insights():
     st.header("🤖 AI Insights")
     st.markdown(
