@@ -10,12 +10,15 @@ MONGODB_URI=mongodb+srv://mielexiewy_db_user:IqOauxJzV7WPJjBw@miele.qtgftux.mong
 
 Weather_API_KEY=93b8cc6fc522407dbbd55019261704
 
+Currency_API_KEY=ebdf17121adf5748ffd76b2e
 
 
 #To export API Key in terminal
-export GEMINI_API_KEY="AIzaSyAZnPgktYtxMHTWBaag0dzVXPqNF9AJiSU"
+export GEMINI_API_KEY="AIzaSyAWBWPLrE9VJgn-v93mjHWk5UEEHwa0UKo"
 export WEATHERAPI_KEY="93b8cc6fc522407dbbd55019261704"
+export EXCHANGERATE_API_KEY="ebdf17121adf5748ffd76b2e"
 
 #To Check if API key is exported successfully
 echo $GEMINI_API_KEY
 echo $WEATHERAPI_KEY
+echo $EXCHANGERATE_API_KEY

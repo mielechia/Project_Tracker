@@ -21,6 +21,38 @@ st.set_page_config(
 # API base URL
 API_BASE_URL = "http://localhost:8000"
 
+ROLE_DISPLAY_NAMES = {
+    "user": "Project Manager",
+    "superuser": "Team Lead",
+    "admin": "Director",
+}
+
+
+def role_display_name(role):
+    role = str(role or "").lower()
+    return ROLE_DISPLAY_NAMES.get(role, role.title() if role else "Unknown")
+
+
+def format_number(value, decimals=0):
+    try:
+        number = float(value or 0)
+        if decimals == 0:
+            return f"{number:,.0f}"
+        return f"{number:,.{decimals}f}"
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def format_usd(value):
+    return f"USD {format_number(value, 2)}"
+
+
+def project_usd_profit(project):
+    value = project.get("f_nprofit_usd")
+    if value is None:
+        value = project.get("f_nprofit")
+    return float(value or 0)
+
 
 # admin Setup
 def get_auth_headers():
@@ -74,6 +106,13 @@ def register_api(payload: dict):
 
 def get_users_api():
     return request_json("GET", "/users")
+
+
+def get_manager_usernames():
+    data, success, error = get_users_api()
+    if success and isinstance(data, list):
+        return sorted([u.get("username") for u in data if u.get("username")])
+    return []
 
 
 def create_user_admin_api(payload: dict):
@@ -343,7 +382,7 @@ def main():
             "API connection failed. Please start the API server and refresh the page."
         )
         st.info(
-            "To start the API server, run ` python3 -m uvicorn schemas_pt_v3_fixed:app --reload ` in your terminal."
+            "To start the API server, run ` python3 -m uvicorn schemas_pt_v3:app --reload ` in your terminal."
         )
         return
 
@@ -357,7 +396,8 @@ def main():
 
     with st.sidebar:
         st.success(f"Logged in as: {st.session_state['username']}")
-        st.info(f"Role: {str(st.session_state['role']).lower()}")
+        current_role = str(st.session_state['role']).lower()
+        st.info(f"Role: {role_display_name(current_role)}")
 
         if st.button("Logout"):
             logout()
@@ -428,9 +468,7 @@ def show_dashboard():
     ]
     avg_margin = round(sum(margins) / len(margins), 2) if margins else 0
 
-    profits = [
-        float(p.get("f_nprofit")) for p in projects if p.get("f_nprofit") is not None
-    ]
+    profits = [project_usd_profit(p) for p in projects if project_usd_profit(p) is not None]
     total_net_profit = round(sum(profits), 2) if profits else 0
 
     # -----------------------------
@@ -441,13 +479,13 @@ def show_dashboard():
     kpi1, kpi2, kpi3 = st.columns(3)
     kpi4, kpi5, kpi6 = st.columns(3)
 
-    kpi1.metric("📦 Total Projects", total_projects)
-    kpi2.metric("✅ Completed", completed_projects)
-    kpi3.metric("🚧 Active", active_projects)
+    kpi1.metric("📦 Total Projects", format_number(total_projects))
+    kpi2.metric("✅ Completed", format_number(completed_projects))
+    kpi3.metric("🚧 Active", format_number(active_projects))
 
     kpi4.metric("📊 Completion Rate", f"{completion_rate}%")
     kpi5.metric("💹 Avg Margin", f"{avg_margin}%")
-    kpi6.metric("💰 Total Net Profit", f"{total_net_profit}")
+    kpi6.metric("💰 Total Net Profit (USD)", format_usd(total_net_profit))
 
     st.markdown("---")
 
@@ -625,17 +663,22 @@ def create_project_ui():
             current_role = st.session_state.get("role")
             current_username = st.session_state.get("username", "")
 
+            manager_usernames = get_manager_usernames()
             if current_role == "user":
                 p_manager = st.text_input(
                     "Project Manager",
                     value=current_username,
                     disabled=True,
+                    help="Project Manager follows the login username.",
                 )
             else:
-                p_manager = st.text_input(
+                options = manager_usernames or [current_username]
+                default_index = options.index(current_username) if current_username in options else 0
+                p_manager = st.selectbox(
                     "Project Manager",
-                    max_chars=100,
-                    placeholder="Enter project manager",
+                    options=options,
+                    index=default_index,
+                    help="Choose from created user accounts so manager names stay consistent.",
                 )
             p_team = st.text_input(
                 "Project Team", max_chars=100, placeholder="Enter project team"
@@ -1287,7 +1330,7 @@ def render_project_full_details(project):
         st.markdown(f"**Currency:** {project.get('f_currency', '-')}")
         st.markdown(f"**Revenue:** {project.get('f_revenue', '-')}")
         st.markdown(f"**Cost:** {project.get('f_cost', '-')}")
-        st.markdown(f"**Profit:** {project.get('f_nprofit', '-')}")
+        st.markdown(f"**Profit (USD):** {format_usd(project.get('f_nprofit_usd') or project.get('f_nprofit', 0))}")
         st.markdown(f"**Margin:** {project.get('f_margin', '-')}")
         st.markdown(f"**Remarks:** {project.get('f_remarks', '-')}")
 
@@ -1594,7 +1637,8 @@ def update_project():
             st.markdown(f"**Final Currency:** {project.get('f_currency')}")
             st.markdown(f"**Revenue:** {project.get('f_revenue')}")
             st.markdown(f"**Cost:** {project.get('f_cost')}")
-            st.markdown(f"**Net Profit:** {project.get('f_nprofit')}")
+            st.markdown(f"**Net Profit (Original):** {project.get('f_currency', '')} {format_number(project.get('f_nprofit'), 2)}")
+            st.markdown(f"**Net Profit (USD):** {format_usd(project.get('f_nprofit_usd') or project.get('f_nprofit', 0))}")
             st.markdown(f"**Margin:** {project.get('f_margin')}")
             st.markdown(f"**Market:** {project.get('market')}")
             st.markdown(f"**Remarks:** {project.get('f_remarks')}")
@@ -1985,6 +2029,7 @@ def update_project():
                     "f_revenue": "Revenue",
                     "f_cost": "Cost",
                     "f_nprofit": "Net Profit",
+                    "f_nprofit_usd": "Net Profit (USD)",
                     "f_margin": "Margin",
                     "f_remarks": "Remarks",
                 }
@@ -2165,9 +2210,7 @@ def ai_insights():
     ]
     avg_margin = round(sum(margins) / len(margins), 2) if margins else 0
 
-    profits = [
-        float(p.get("f_nprofit")) for p in projects if p.get("f_nprofit") is not None
-    ]
+    profits = [project_usd_profit(p) for p in projects if project_usd_profit(p) is not None]
     total_net_profit = round(sum(profits), 2) if profits else 0
 
     manager_counts_snapshot = Counter(p.get("p_manager", "Unknown") for p in projects)
@@ -2203,14 +2246,14 @@ def ai_insights():
         st.subheader("🧠 AI Snapshot")
 
         snap1, snap2, snap3, snap4 = st.columns(4)
-        snap1.metric("📦 Total Projects", total_projects)
-        snap2.metric("✅ Completed", completed_projects)
-        snap3.metric("🚧 Active", active_projects)
+        snap1.metric("📦 Total Projects", format_number(total_projects))
+        snap2.metric("✅ Completed", format_number(completed_projects))
+        snap3.metric("🚧 Active", format_number(active_projects))
         snap4.metric("📊 Completion Rate", f"{completion_rate}%")
 
         snap5, snap6, snap7 = st.columns(3)
         snap5.metric("💹 Avg Margin", f"{avg_margin}%")
-        snap6.metric("💰 Total Net Profit", f"{total_net_profit}")
+        snap6.metric("💰 Total Net Profit (USD)", format_usd(total_net_profit))
         snap7.metric("👤 Top Manager", top_manager)
 
         insight_col1, insight_col2 = st.columns(2)
@@ -2234,6 +2277,38 @@ def ai_insights():
                 st.success(f"💹 Average margin is {avg_margin}%, which looks healthy.")
 
         st.caption(f"Most common status: {top_status}")
+
+        st.subheader("🤖 AI Overview")
+        ai_notes = []
+        if active_projects > completed_projects:
+            ai_notes.append("Active projects are higher than completed projects, so delivery follow-up may be needed.")
+        if avg_margin < 20:
+            ai_notes.append("Average margin is below 20%, so profitability should be reviewed.")
+        if total_net_profit > 0:
+            ai_notes.append(f"Overall USD net profit is positive at {format_usd(total_net_profit)}.")
+        if not ai_notes:
+            ai_notes.append("Overall project health looks stable based on the current project data.")
+        st.info(" ".join(ai_notes))
+
+        if st.button("Generate AI Overview Analysis", key="generate_ai_overview_analysis"):
+            try:
+                res = requests.get(
+                    f"{API_BASE_URL}/ai/llm-summary/",
+                    headers=get_auth_headers(),
+                    timeout=45,
+                )
+                if res.status_code == 200:
+                    st.markdown("### AI-Generated Overview")
+                    st.markdown(res.json().get("ai_summary", "No AI overview available."))
+                else:
+                    try:
+                        error_detail = res.json().get("detail", res.text)
+                    except Exception:
+                        error_detail = res.text
+                    st.warning(f"AI overview could not be generated: {error_detail}")
+            except requests.exceptions.RequestException as e:
+                st.warning(f"AI overview could not be generated: {e}")
+
         st.markdown("---")
 
         st.subheader("📌 Quick Project Snapshot")
@@ -2311,9 +2386,9 @@ def ai_insights():
                         st.success(f"📅 {period.capitalize()} Report")
 
                         metric1, metric2, metric3 = st.columns(3)
-                        metric1.metric("📦 Total Projects", data.get("count", 0))
+                        metric1.metric("📦 Total Projects", format_number(data.get("count", 0)))
                         metric2.metric(
-                            "💰 Total Net Profit", f"{data.get('total_profit', 0)}"
+                            "💰 Total Net Profit (USD)", format_usd(data.get('total_profit', 0))
                         )
                         metric3.metric(
                             "📊 Avg Margin (%)", f"{data.get('avg_margin', 0)}%"
@@ -2321,6 +2396,30 @@ def ai_insights():
 
                         st.markdown(f"**Manager Filter:** {selected_manager}")
                         st.caption(f"Period: {period.capitalize()}")
+
+                        st.markdown("### 🤖 AI Report Analysis")
+                        st.markdown(data.get("ai_summary", "No AI analysis available."))
+                        st.markdown("### 📥 Download Report")
+                        pdf_params = {"period": period}
+                        if selected_manager != "All":
+                            pdf_params["manager"] = selected_manager
+                        pdf_res = requests.get(
+                            f"{API_BASE_URL}/reports/projects/pdf",
+                            params=pdf_params,
+                            headers=get_auth_headers(),
+                            timeout=30,
+                        )
+                        if pdf_res.status_code == 200:
+                            st.download_button(
+                                "Download Project Performance PDF",
+                                data=pdf_res.content,
+                                file_name=f"project_report_{period}_{selected_manager.replace(' ', '_')}.pdf",
+                                mime="application/pdf",
+                                key="download_project_report_pdf",
+                            )
+                        else:
+                            st.warning("PDF report could not be generated for download. Please ensure `reportlab` is installed.")
+
 
                         if data.get("count", 0) == 0:
                             st.info("No projects found for this selection.")
@@ -2343,8 +2442,10 @@ def ai_insights():
                                     )
                                     st.markdown(
                                         f"Start Date: {project.get('p_s_date')}  \n"
-                                        f"Created At: {project.get('created_at')}"
+                                        f"Created At: {project.get('created_at')}  \n"
+                                        f"USD Net Profit: {format_usd(project.get('f_nprofit_usd', 0))}"
                                     )
+
 
                     else:
                         try:
@@ -2401,9 +2502,9 @@ def ai_insights():
                         st.success("AI summary generated successfully")
 
                         info1, info2, info3, info4 = st.columns(4)
-                        info1.metric("📦 Total", data.get("total_projects", 0))
-                        info2.metric("✅ Completed", data.get("completed", 0))
-                        info3.metric("🚧 Active", data.get("active", 0))
+                        info1.metric("📦 Total", format_number(data.get("total_projects", 0)))
+                        info2.metric("✅ Completed", format_number(data.get("completed", 0)))
+                        info3.metric("🚧 Active", format_number(data.get("active", 0)))
                         info4.metric(
                             "📊 Completion Rate",
                             f"{data.get('completion_rate', 0)}%",
@@ -2417,8 +2518,29 @@ def ai_insights():
                         )
                         box3.info(f"**Trend:** {insights.get('trend', '-')}")
 
-                        st.markdown("### Summary Output")
-                        st.text(data.get("report", "No summary available"))
+                        st.markdown("### 🤖 AI Summary Output")
+                        st.markdown(data.get("report", "No summary available"))
+
+                        st.markdown("### 📥 Download Report")
+                        pdf_params = {"period": ai_summary_period}
+                        if ai_summary_manager != "All":
+                            pdf_params["manager"] = ai_summary_manager
+                        pdf_res = requests.get(
+                            f"{API_BASE_URL}/ai/report/pdf",
+                            params=pdf_params,
+                            headers=get_auth_headers(),
+                            timeout=30,
+                        )
+                        if pdf_res.status_code == 200:
+                            st.download_button(
+                                "Download AI Manager Summary PDF",
+                                data=pdf_res.content,
+                                file_name=f"ai_manager_summary_{ai_summary_period}_{ai_summary_manager.replace(' ', '_')}.pdf",
+                                mime="application/pdf",
+                                key="download_ai_manager_summary_pdf",
+                            )
+                        else:
+                            st.warning("AI Manager PDF could not be generated for download. Please ensure `reportlab` is installed.")
 
                     else:
                         try:
@@ -2437,148 +2559,89 @@ def ai_insights():
     with subtab3:
         st.subheader("💬 AI Chat Assistant")
 
-        current_prefill = st.session_state.get("ai_prefill", "")
+        st.markdown("### 📝 Conversation")
+        conversation_box = st.container(height=650, border=True)
+        with conversation_box:
+            if st.session_state.chat_history:
+                for chat in st.session_state.chat_history:
+                    if chat["role"] == "user":
+                        st.markdown(f"🧑 **You:** {chat['message']}")
+                    else:
+                        st.markdown(f"🤖 **AI:** {chat['message']}")
+                    st.markdown("---")
+            else:
+                st.info("No chat history yet. Start with a question or use one of the quick prompts.")
 
-        user_input = st.text_input(
+        st.markdown("### 💬 Chat Box")
+        current_prefill = st.session_state.get("ai_prefill", "")
+        user_input = st.text_area(
             "Ask about projects, managers, performance insights, or general queries.",
             value=current_prefill,
             key="ai_chat_input",
+            height=120,
         )
 
         chat_action_col1, chat_action_col2 = st.columns([1, 1])
-
         with chat_action_col1:
             send_clicked = st.button("Send 💬", key="send_ai_chat")
-
         with chat_action_col2:
             if st.button("Clear Chat 🗑️", key="clear_ai_chat"):
                 st.session_state.chat_history = []
                 st.session_state["ai_prefill"] = ""
                 st.rerun()
 
-        if send_clicked:
-            if user_input.strip():
-                st.session_state.chat_history.append(
-                    {"role": "user", "message": user_input.strip()}
+        def send_ai_prompt(prompt_text):
+            st.session_state.chat_history.append({"role": "user", "message": prompt_text})
+            try:
+                response = requests.post(
+                    f"{API_BASE_URL}/ai/chat/",
+                    params={"query": prompt_text},
+                    headers=get_auth_headers(),
+                    timeout=30,
                 )
-
-                try:
-                    response = requests.post(
-                        f"{API_BASE_URL}/ai/chat/",
-                        params={"query": user_input.strip()},
-                        headers=get_auth_headers(),
-                        timeout=30,
-                    )
-
-                    if response.status_code == 200:
-                        ai_reply = response.json().get(
-                            "response", "No response from AI"
-                        )
+                if response.status_code == 200:
+                    ai_reply = response.json().get("response", "No response from AI")
+                else:
+                    try:
+                        error_detail = response.json().get("detail", response.text)
+                    except Exception:
+                        error_detail = response.text
+                    if "GEMINI_API_KEY is not set" in str(error_detail):
+                        ai_reply = "⚠️ AI assistant is not available yet because GEMINI_API_KEY is not set."
+                    elif "WEATHERAPI_KEY is not set" in str(error_detail):
+                        ai_reply = "⚠️ Live weather is not available yet because WEATHERAPI_KEY is not set."
+                    elif "429" in str(error_detail) or "RESOURCE_EXHAUSTED" in str(error_detail) or "quota" in str(error_detail).lower():
+                        ai_reply = "AI quota is currently exhausted, so I’m using the built-in assistant fallback. Please try Gemini again later, or continue asking project/report questions."
                     else:
-                        try:
-                            error_detail = response.json().get("detail", response.text)
-                        except Exception:
-                            error_detail = response.text
+                        ai_reply = f"⚠️ AI request failed: {error_detail}"
+            except requests.exceptions.RequestException as e:
+                ai_reply = f"⚠️ AI request failed: {str(e)}"
+            st.session_state.chat_history.append({"role": "ai", "message": ai_reply})
+            st.session_state["ai_prefill"] = ""
+            st.rerun()
 
-                        if "GEMINI_API_KEY is not set" in str(error_detail):
-                            ai_reply = (
-                                "⚠️ AI assistant is not available yet because GEMINI_API_KEY is not set. "
-                                "Please add your Gemini API key to enable general AI questions like weather."
-                            )
-                        elif "WEATHERAPI_KEY is not set" in str(error_detail):
-                            ai_reply = (
-                                "⚠️ Live weather is not available yet because WEATHERAPI_KEY is not set. "
-                                "Please add your weather API key to enable weather queries."
-                            )
-                        else:
-                            ai_reply = f"⚠️ AI request failed: {error_detail}"
-
-                except requests.exceptions.RequestException as e:
-                    ai_reply = f"⚠️ AI request failed: {str(e)}"
-
-                st.session_state.chat_history.append(
-                    {"role": "ai", "message": ai_reply}
-                )
-                st.session_state["ai_prefill"] = ""
-                st.rerun()
+        if send_clicked and user_input.strip():
+            send_ai_prompt(user_input.strip())
 
         st.markdown("---")
-
-        st.subheader("📝 Conversation")
-
-        if st.session_state.chat_history:
-            for chat in st.session_state.chat_history:
-                with st.container(border=True):
-                    if chat["role"] == "user":
-                        st.markdown(f"🧑 **You**")
-                    else:
-                        st.markdown(f"🤖 **AI**")
-                    st.write(chat["message"])
-        else:
-            st.info(
-                "No chat history yet. Start with a question or use one of the quick prompts."
-            )
-
-        st.markdown("---")
-
         st.subheader("💡 Smart Actions")
         st.caption("Quick prompts to explore common project insights.")
 
         suggestions = [
-            "Summarise monthly project performance",
-            "Analyse performance trends by manager",
+            "Summarise monthly project performance in USD",
+            "Analyse performance trends by manager using USD profit",
             "Identify underperforming managers",
             "Show projects with low margins",
             "Highlight potential project risks",
             "Projects initiated this week",
         ]
 
-        # Left-aligned layout (2 columns + empty space)
         col_left, col_right, _ = st.columns([1, 1, 2])
-
         for i, suggestion in enumerate(suggestions):
             target_col = col_left if i % 2 == 0 else col_right
-
             with target_col:
                 if st.button(suggestion, key=f"suggestion_{i}"):
-
-                    # Save user message
-                    st.session_state.chat_history.append(
-                        {"role": "user", "message": suggestion}
-                    )
-
-                    # Call AI backend
-                    try:
-                        response = requests.post(
-                            f"{API_BASE_URL}/ai/chat/",
-                            params={"query": suggestion},
-                            headers=get_auth_headers(),
-                            timeout=30,
-                        )
-
-                        if response.status_code == 200:
-                            ai_reply = response.json().get(
-                                "response", "No response from AI"
-                            )
-                        else:
-                            try:
-                                error_detail = response.json().get(
-                                    "detail", response.text
-                                )
-                            except Exception:
-                                error_detail = response.text
-
-                            ai_reply = f"⚠️ AI request failed: {error_detail}"
-
-                    except requests.exceptions.RequestException as e:
-                        ai_reply = f"⚠️ AI request failed: {str(e)}"
-
-                    # Save AI reply
-                    st.session_state.chat_history.append(
-                        {"role": "ai", "message": ai_reply}
-                    )
-
-                    st.rerun()
+                    send_ai_prompt(suggestion)
 
     st.markdown("---")
 
@@ -2632,9 +2695,10 @@ def admin_settings_ui():
         elif not visible_users:
             st.info("No users available.")
         else:
-            st.dataframe(
-                pd.DataFrame(visible_users), use_container_width=True, hide_index=True
-            )
+            users_df = pd.DataFrame(visible_users)
+            if "role" in users_df.columns:
+                users_df["role_name"] = users_df["role"].apply(role_display_name)
+            st.dataframe(users_df, use_container_width=True, hide_index=True)
 
     elif section == "Create User":
         allowed_roles = (
@@ -2642,7 +2706,12 @@ def admin_settings_ui():
             if role in ["user", "superuser"]
             else ["user", "superuser", "admin"]
         )
-        create_role = st.selectbox("Role", allowed_roles, key="admin_create_role")
+        create_role_label = st.selectbox(
+            "Role",
+            [role_display_name(r) for r in allowed_roles],
+            key="admin_create_role",
+        )
+        create_role = next(r for r in allowed_roles if role_display_name(r) == create_role_label)
 
         role_code = ""
         if create_role in ["superuser", "admin"]:
@@ -2713,7 +2782,7 @@ def admin_settings_ui():
             "Update User Role",
         ] and role in ["admin", "superuser"]:
             user_labels = [
-                f"{u['user_id']} - {u['username']} ({str(u['role']).lower()})"
+                f"{u['user_id']} - {u['username']} ({role_display_name(u.get('role'))})"
                 for u in selectable_users
             ]
             if not user_labels:
@@ -2730,11 +2799,13 @@ def admin_settings_ui():
             if current_role not in role_options:
                 current_role = "user"
 
-            new_role = st.selectbox(
+            role_display_options = [role_display_name(r) for r in role_options]
+            new_role_label = st.selectbox(
                 "New Role",
-                role_options,
+                role_display_options,
                 index=role_options.index(current_role),
             )
+            new_role = next(r for r in role_options if role_display_name(r) == new_role_label)
 
             if st.button("Update Role"):
                 response, ok, err = update_user_role_api(
