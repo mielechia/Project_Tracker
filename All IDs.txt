@@ -1,5 +1,5 @@
 # Google AI API Key for Gemini
-GOOGLE_API_KEY=AIzaSyAZnPgktYtxMHTWBaag0dzVXPqNF9AJiSU
+GOOGLE_API_KEY=AIzaSyDj2QBsUR6IxVCMWeUk7gybw65FyqTMq50
 GEMINI_MODEL=gemini-2.5-flash-lite
 
 # MongoDB Connection URI
@@ -14,7 +14,7 @@ Currency_API_KEY=ebdf17121adf5748ffd76b2e
 
 
 #To export API Key in terminal
-export GEMINI_API_KEY="AIzaSyAWBWPLrE9VJgn-v93mjHWk5UEEHwa0UKo"
+export GEMINI_API_KEY="AIzaSyDj2QBsUR6IxVCMWeUk7gybw65FyqTMq50"
 export WEATHERAPI_KEY="93b8cc6fc522407dbbd55019261704"
 export EXCHANGERATE_API_KEY="ebdf17121adf5748ffd76b2e"
 
@@ -22,3 +22,6 @@ export EXCHANGERATE_API_KEY="ebdf17121adf5748ffd76b2e"
 echo $GEMINI_API_KEY
 echo $WEATHERAPI_KEY
 echo $EXCHANGERATE_API_KEY
+
+#To refresh the exchange rate to the latest
+python migrate_exchange_rates_to_api.py --db Project_Tracker_v3.db
